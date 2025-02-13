@@ -36,3 +36,29 @@ iris_long <- iris_long %>%
 iris_long
 
 print(n = 30,iris_long)
+
+# filter
+iris_high <- iris_long %>%
+  filter(category == "High")
+
+iris_high
+
+#summary
+summary_table <- iris_long %>%
+  group_by(Species, measurement) %>%
+  summarise(
+    avg_value = mean(value),
+    .groups = "drop"
+  )
+
+summary_table
+
+
+summary_wide <- summary_table %>%
+  pivot_wider(
+    names_from = measurement,
+    values_from = avg_value
+  )
+
+
+summary_wide
