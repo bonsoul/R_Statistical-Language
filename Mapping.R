@@ -46,11 +46,30 @@ cholera_county <- setNames(cholera_data1, c('county','sub_county','ward'))
 #loading the shapefiles
 
 library(readr)
-kenya <- read_csv("D:/Downloads/KEN_adm4.csv")
-View(kenya)
+Kenya_Counties <- read_csv("D:/Downloads/Kenya-Counties.csv")
+View(Kenya_Counties)
+
+kenyashape <- fortify(Kenya_Counties)
 
 
-kenyashape <- fortify(kenya)
-colnames(kenyashape)
 
-popdf <- merge(kenyashape, cholera_county, by.x='id',by.y = 'PID')
+
+
+popdf <- merge(kenyashape, cholera_county)
+
+
+#visualization
+
+Map <- ggplot(popdf, aes(long, lat, group = group, label = county)) +
+  geom_polygon() + 
+  coord_equal() + 
+  labs(fill = 'date_of_onset_of_diseases.1') +
+  theme_minimal(base_size = 12) + 
+  theme(text=element_text(size=15),
+        plot.caption = element_text(size=10, hjust=0.5,
+                                    face='italic',color='blue')) +
+  labs(caption = "Data Source ")
+
+
+Map <- Map + scale_fill_gradient(low='gray',high = 'red')
+Map
