@@ -73,3 +73,9 @@ Map <- ggplot(popdf, aes(long, lat, group = group, label = county)) +
 
 Map <- Map + scale_fill_gradient(low='gray',high = 'red')
 Map
+
+
+
+
+
+
