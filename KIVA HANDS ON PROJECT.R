@@ -22,6 +22,7 @@ install.packages("forecast")
 install.packages("lattice")
 
 library(knitr)
+library(sf)
 
 glimpse(overall_poverty_est)
 summary(overall_poverty_est)
@@ -74,6 +75,7 @@ overall_poverty_est %>%
 overall_poverty_est <- as.data.frame(overall_poverty_est)
 class(overall_poverty_est)
 problems(overall_poverty_est)
+st_geometry(overall_poverty_est)
 
 #overall poverty estimate in a map
 plotPovertymap <- function(p_regions_map) {
