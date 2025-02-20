@@ -293,6 +293,8 @@ leaflet(country_loans) %>% addTiles() %>%
   # controls
   setView(lng=center_lon, lat=center_lat,zoom = 5) 
 
+library(dplyr)       # or
+library(tidyverse)   # which loads dplyr, ggplot2, and more
 
 
 country_loans %>%
@@ -315,6 +317,8 @@ country_loans %>%
   coord_flip() +
   theme_bw()
 
+
+loans <- read_csv("D:/Downloads/kiva_loans.csv.zip")
 
 plotLoansAndSectorByCountry <- function(loans, countryName,fillColor2) {
   loans %>%
@@ -340,3 +344,28 @@ plotLoansAndSectorByCountry <- function(loans, countryName,fillColor2) {
 
 
 plotLoansAndSectorByCountry(loans,"Kenya",fillColor)
+
+plotLoansAndActivityByCountry <- function(loans, countryName,fillColor2) {
+  loans %>%
+    filter(country == countryName) %>%
+    group_by(activity) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(activity = reorder(activity,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = activity,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = activity, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Activity', 
+         y = 'Count', 
+         title = 'Activity and Count') +
+    coord_flip() +
+    theme_bw()
+}
+
+
+plotLoansAndActivityByCountry(loans,"Kenya",fillColor2)
