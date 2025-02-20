@@ -483,3 +483,29 @@ fit <- ets(tsLoans)
 preds = forecast(fit, h = 5)
 
 preds %>% autoplot(include=42) +theme_bw()
+
+
+library(prophet)
+
+loansData2 =loansData[1:nrow(loansData)-1,] %>% 
+  ungroup %>%
+  select(YearMonth,Count)
+
+colnames(loansData2) = c("ds","y")
+
+m <- prophet(loansData2,changepoint.prior.scale = 0.1)
+
+
+m <- prophet(loansData2,
+             changepoint.prior.scale = 0.1,
+             weekly.seasonality = TRUE,
+             daily.seasonality = TRUE)
+
+future <- make_future_dataframe(m,
+                                periods =5, freq = "month")
+
+forecast <- predict(m,future)
+
+predictions = tail(round(forecast$yhat),5)
+                   
+plot(m, forecast)
