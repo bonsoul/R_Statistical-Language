@@ -452,7 +452,16 @@ install.packages("DT")
 library(DT)
 
 library(dplyr)
+
+install.packages("forecast")  # Install if you haven't already
+library(forecast) 
+
+library(ggplot2)
 loansData2 =loansData[1:nrow(loansData)-1,] %>% select(Count)
+loansData2 <- loansData %>%
+  ungroup() %>%  # Remove grouping
+  slice(1:(n() - 1)) %>%  # Alternatively, use slice to avoid indexing issues
+  select(Count)
 
 tsLoans = ts(loansData2$Count)
 
