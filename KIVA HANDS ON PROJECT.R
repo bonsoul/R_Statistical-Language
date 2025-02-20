@@ -470,3 +470,16 @@ fit <- auto.arima(tsLoans)
 preds = forecast(fit, h = 5)
 
 preds %>% autoplot(include=42) +theme_bw()
+
+predictions = round(as.numeric(preds$mean))
+
+cat("The predictions are ","\n")
+
+predictions
+
+
+fit <- ets(tsLoans)
+
+preds = forecast(fit, h = 5)
+
+preds %>% autoplot(include=42) +theme_bw()
