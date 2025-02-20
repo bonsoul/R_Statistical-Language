@@ -369,3 +369,55 @@ plotLoansAndActivityByCountry <- function(loans, countryName,fillColor2) {
 
 
 plotLoansAndActivityByCountry(loans,"Kenya",fillColor2)
+
+
+
+plotLoansAndUseByCountry <- function(loans, countryName,fillColor2) {
+  loans %>%
+    filter(country == countryName) %>%
+    filter(!is.na(use)) %>%
+    group_by(use) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(use = reorder(use,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = use,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = use, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Use of Loans', 
+         y = 'Count', 
+         title = 'Use of Loans and Count') +
+    coord_flip() +
+    theme_bw() 
+}
+
+
+plotLoansAndUseByCountry(loans,"Kenya",fillColorLightCoral)
+
+
+fundedLoanAmountDistribution <- function(loans)
+{
+  loans %>%
+    ggplot(aes(x = funded_amount) )+
+    scale_x_log10(
+      breaks = scales::trans_breaks("log10", function(x) 10^x),
+      labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    scale_y_log10(
+      breaks = scales::trans_breaks("log10", function(x) 10^x),
+      labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) + 
+    geom_histogram(fill = fillColor2,bins=50) +
+    labs(x = 'Funded Loan Amount' ,y = 'Count', title = paste("Distribution of", "Funded Loan Amount")) +
+    theme_bw()
+}
+
+
+country_loans = loans %>%
+  filter(country == "Kenya")
+
+fundedLoanAmountDistribution(country_loans)
