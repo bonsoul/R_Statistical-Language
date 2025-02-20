@@ -260,6 +260,21 @@ library(mapview)
 mapshot(m, file = "leaflet_plot.png")
 
 
+library(htmlwidgets)
+saveWidget(m, file = "leaflet_plot.html", selfcontained = TRUE)
+
+library(leaflet)
+
+# Assuming valid_country_loans is your filtered data frame with valid 'lon' and 'lat' columns
+# Also, ensure center_lon and center_lat are defined (e.g., the center of your data)
+m <- leaflet(valid_country_loans) %>%
+  addTiles() %>%
+  addCircles(lng = ~lon, lat = ~lat, radius = ~(amount/100), color = "blue") %>%
+  setView(lng = center_lon, lat = center_lat, zoom = 5)
+
+mapshot(m, file = "leaflet_plot.png")
+
+
 plotPovertyMapForDS(overall_poverty_est)
 themes_region <-  read_csv("C:/Users/pc/Desktop/loan_themes_by_region.csv")
 
