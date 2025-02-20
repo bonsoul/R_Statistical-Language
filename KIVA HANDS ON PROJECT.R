@@ -239,6 +239,42 @@ plotPovertyMapForDS <- function(dataset){
 }
 
 
+summary(country_loans$lon)
+summary(country_loans$lat)
+problematic_rows <- country_loans[is.na(country_loans$lon) | is.na(country_loans$lat), ]
+head(problematic_rows)
+
+valid_country_loans <- country_loans %>% 
+  filter(!is.na(lon) & !is.na(lat))
+
+
+leaflet(valid_country_loans) %>% 
+  addTiles() %>%
+  addCircles(lng = ~lon, lat = ~lat, radius = ~(amount/100),
+             color = ~"blue") %>%
+  setView(lng = center_lon, lat = center_lat, zoom = 5)
+
+
+install.packages("mapview")
+library(mapview)
+mapshot(m, file = "leaflet_plot.png")
 
 
 plotPovertyMapForDS(overall_poverty_est)
+themes_region <-  read_csv("C:/Users/pc/Desktop/loan_themes_by_region.csv")
+
+
+country_loans = themes_region %>% 
+  filter(country == "Kenya") %>%
+  rename (themeType = `Loan Theme Type`) 
+
+
+center_lon = median(country_loans$lon,na.rm = TRUE)
+center_lat = median(country_loans$lat,na.rm = TRUE)
+
+
+leaflet(country_loans) %>% addTiles() %>%
+  addCircles(lng = ~lon, lat = ~lat,radius = ~(amount/100) ,
+             color = ~c("blue"))  %>%
+  # controls
+  setView(lng=center_lon, lat=center_lat,zoom = 5) 
