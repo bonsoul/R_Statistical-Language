@@ -421,3 +421,25 @@ country_loans = loans %>%
   filter(country == "Kenya")
 
 fundedLoanAmountDistribution(country_loans)
+
+
+summary(country_loans$funded_amount)
+
+
+loansData = loans %>%
+  filter(country == "Kenya") %>%
+  filter(!is.na(funded_time)) %>%
+  mutate(year = year(ymd_hms(funded_time))) %>%
+  mutate(month = month(ymd_hms(funded_time))) %>%
+  filter(!is.na(year)) %>%
+  filter(!is.na(month)) %>%
+  group_by(year,month) %>%
+  summarise(Count = n()) %>%
+  mutate(YearMonth = make_date(year=year,month=month) ) 
+
+loansData %>%
+  ggplot(aes(x=YearMonth,y=Count,group = 1)) +
+  geom_line(size=1, color="red")+
+  geom_point(size=3, color="red") +
+  labs(x = 'Time', y = 'Count',title = 'Trend of loans') +
+  theme_bw() 
