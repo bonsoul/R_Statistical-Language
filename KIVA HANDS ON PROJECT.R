@@ -443,3 +443,21 @@ loansData %>%
   geom_point(size=3, color="red") +
   labs(x = 'Time', y = 'Count',title = 'Trend of loans') +
   theme_bw() 
+
+
+datatable(loansData, style="bootstrap", class="table-condensed", options = list(dom = 'tp',scrollX = TRUE))
+
+
+install.packages("DT")
+library(DT)
+
+library(dplyr)
+loansData2 =loansData[1:nrow(loansData)-1,] %>% select(Count)
+
+tsLoans = ts(loansData2$Count)
+
+fit <- auto.arima(tsLoans)
+
+preds = forecast(fit, h = 5)
+
+preds %>% autoplot(include=42) +theme_bw()
