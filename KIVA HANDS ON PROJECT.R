@@ -265,8 +265,7 @@ saveWidget(m, file = "leaflet_plot.html", selfcontained = TRUE)
 
 library(leaflet)
 
-# Assuming valid_country_loans is your filtered data frame with valid 'lon' and 'lat' columns
-# Also, ensure center_lon and center_lat are defined (e.g., the center of your data)
+
 m <- leaflet(valid_country_loans) %>%
   addTiles() %>%
   addCircles(lng = ~lon, lat = ~lat, radius = ~(amount/100), color = "blue") %>%
@@ -293,3 +292,51 @@ leaflet(country_loans) %>% addTiles() %>%
              color = ~c("blue"))  %>%
   # controls
   setView(lng=center_lon, lat=center_lat,zoom = 5) 
+
+
+
+country_loans %>%
+  rename(FieldPartnerName =`Field Partner Name`) %>%
+  group_by(FieldPartnerName) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count)) %>%
+  ungroup() %>%
+  mutate(FieldPartnerName = reorder(FieldPartnerName,Count)) %>%
+  head(10) %>%
+  
+  ggplot(aes(x = FieldPartnerName,y = Count)) +
+  geom_bar(stat='identity',colour="white", fill = fillColor2) +
+  geom_text(aes(x = FieldPartnerName, y = 1, label = paste0("(",Count,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Field Partner Name', 
+       y = 'Count', 
+       title = 'Field Partner Name and Count') +
+  coord_flip() +
+  theme_bw()
+
+
+plotLoansAndSectorByCountry <- function(loans, countryName,fillColor2) {
+  loans %>%
+    filter(country == countryName) %>%
+    group_by(sector) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(sector = reorder(sector,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = sector,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = sector, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Sector', 
+         y = 'Count', 
+         title = 'Sector and Count') +
+    coord_flip() +
+    theme_bw()
+}
+
+
+plotLoansAndSectorByCountry(loans,"Kenya",fillColor)
