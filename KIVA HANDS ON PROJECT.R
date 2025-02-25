@@ -7,6 +7,7 @@ library(stringr)
 library(leaflet)
 library(rgdal)
 library(sf)
+library(htmlwidgets)
 
 
 library(knitr)
@@ -167,3 +168,84 @@ plotPovertyMapForDS(food_poverty_est)
 png("food_poverty_map.png", width = 1200, height = 800, res = 150)
 plotPovertyMapForDS(overall_poverty_est)
 dev.off()
+
+#hardcore poverty estimate
+food_poverty_est %>%
+  arrange(desc(PovertyGap)) %>%
+  head(10) %>%
+  select(residence_county,PovertyGap) %>%
+  kable()
+
+plotPovertyMapForDS(food_poverty_est)
+
+png("hardcore_poverty_map.png", width = 1200, height = 800, res = 150)
+plotPovertyMapForDS(overall_poverty_est)
+dev.off()
+
+
+#Kenya
+#Loan in Kenya
+country_loans = loan_themes_region_ %>% 
+  filter(country == "Kenya") %>%
+  rename (themeType = `Loan Theme Type`) 
+
+
+center_lon = median(country_loans$lon,na.rm = TRUE)
+center_lat = median(country_loans$lat,na.rm = TRUE)
+
+
+m <- leaflet(country_loans) %>% addTiles() %>%
+  addCircles(lng = ~lon, lat = ~lat,radius = ~(amount/100) ,
+             color = ~c("blue"))  %>%
+  # controls
+  setView(lng=center_lon, lat=center_lat,zoom = 5) 
+
+# Save the map to an HTML file
+saveWidget(m,file = "my_kenya_loans.html", selfcontained = TRUE)
+
+
+#most dominat field partner
+country_loans %>%
+  rename(FieldPartnerName =`Field Partner Name`) %>%
+  group_by(FieldPartnerName) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count)) %>%
+  ungroup() %>%
+  mutate(FieldPartnerName = reorder(FieldPartnerName,Count)) %>%
+  head(10) %>%
+  
+  ggplot(aes(x = FieldPartnerName,y = Count)) +
+  geom_bar(stat='identity',colour="white", fill = fillColor2) +
+  geom_text(aes(x = FieldPartnerName, y = 1, label = paste0("(",Count,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Field Partner Name', 
+       y = 'Count', 
+       title = 'Field Partner Name and Count') +
+  coord_flip() +
+  theme_bw()
+
+#most popular sector
+plotLoansAndSectorByCountry <- function(kiva_loans, countryName,fillColor2) {
+  kiva_loans %>%
+    filter(country == countryName) %>%
+    group_by(sector) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(sector = reorder(sector,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = sector,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = sector, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Sector', 
+         y = 'Count', 
+         title = 'Sector and Count') +
+    coord_flip() +
+    theme_bw()
+}
+
+plotLoansAndSectorByCountry(kiva_loans,"Kenya",fillColor)
