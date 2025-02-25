@@ -35,8 +35,6 @@ loan_theme_ids <- read_csv("D:/Downloads/loan_theme_ids.csv.zip")
 loan_themes_region_ <- read_csv("D:/Downloads/loan_themes_by_region.csv.zip")
 
 
-colnames(conflictsdata)  # Print all column names
-
 conflictsdata <- read_csv("D:/Downloads/african_conflicts.csv.zip", col_types = cols(
   .default = col_character(),
   FATALITIES = col_integer(),
@@ -56,6 +54,7 @@ conflictsdata$LONGITUDE <- gsub("[^0-9.-]", "", conflictsdata$LONGITUDE)  # Remo
 conflictsdata$LONGITUDE <- as.numeric(conflictsdata$LONGITUDE)  # Convert to numeric
 conflictsdata$LONGITUDE[!grepl("^-?[0-9.]+$", conflictsdata$LONGITUDE)] <- NA  # Replace bad values
 
+colnames(conflictsdata)  # Print all column names
 
 # Summary of the datasets
 glimpse(overall_poverty_est)
@@ -185,6 +184,15 @@ dev.off()
 
 #Kenya
 #Loan in Kenya
+
+# Check for rows with missing lat or lon values
+invalid_coords <- country_loans[is.na(country_loans$lat) | is.na(country_loans$lon), ]
+print(invalid_coords)
+
+country_loans_clean <- country_loans[!is.na(country_loans$lat) & !is.na(country_loans$lon), ]
+country_loans$lat <- as.numeric(country_loans$lat)
+country_loans$lon <- as.numeric(country_loans$lon)
+
 country_loans = loan_themes_region_ %>% 
   filter(country == "Kenya") %>%
   rename (themeType = `Loan Theme Type`) 
@@ -194,12 +202,12 @@ center_lon = median(country_loans$lon,na.rm = TRUE)
 center_lat = median(country_loans$lat,na.rm = TRUE)
 
 
-m <- leaflet(country_loans) %>% addTiles() %>%
+m <- leaflet(country_loans_clean) %>% addTiles() %>%
   addCircles(lng = ~lon, lat = ~lat,radius = ~(amount/100) ,
-             color = ~c("blue"))  %>%
+             color = ~c("magenta"))  %>%
   # controls
   setView(lng=center_lon, lat=center_lat,zoom = 5) 
-
+m
 # Save the map to an HTML file
 saveWidget(m,file = "my_kenya_loans.html", selfcontained = TRUE)
 
@@ -248,4 +256,58 @@ plotLoansAndSectorByCountry <- function(kiva_loans, countryName,fillColor2) {
     theme_bw()
 }
 
+
+png("most popular sector.png", width = 800, height = 600)
+
 plotLoansAndSectorByCountry(kiva_loans,"Kenya",fillColor)
+png("most popular sector2.png", width = 800, height = 600)
+
+
+plotLoansAndSectorByCountry <- function(country_loans_clean, countryName,fillColor2) {
+  country_loans_clean %>%
+    filter(country == countryName) %>%
+    group_by(sector) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(sector = reorder(sector,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = sector,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = sector, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Sector', 
+         y = 'Count', 
+         title = 'Sector and Count') +
+    coord_flip() +
+    theme_bw()
+}
+
+plotLoansAndSectorByCountry(country_loans_clean,"Kenya",fillColor)
+
+
+plotLoansAndActivityByCountry <- function(country_loans_clean, countryName,fillColor2) {
+  country_loans_clean %>%
+    filter(country == countryName) %>%
+    group_by(activity) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(activity = reorder(activity,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = activity,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = activity, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Activity', 
+         y = 'Count', 
+         title = 'Activity and Count') +
+    coord_flip() +
+    theme_bw()
+}
+
+plotLoansAndActivityByCountry(country_loans_clean,"Kenya",fillColor2)
