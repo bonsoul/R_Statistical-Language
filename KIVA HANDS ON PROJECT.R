@@ -26,6 +26,7 @@ fillColor = "#FFA07A"
 fillColor2 = "#F1C40F"
 fillColorLightCoral = "#F08080"
 
+
 overall_poverty_est <- read_csv("D:/Downloads/overall_poverty_est.xls")
 hardcore_poverty_est <- read_csv("D:/Downloads/hardcore_poverty_est.xls")
 food_poverty_est <- read_csv("D:/Downloads/food_poverty_est.xls")
@@ -34,6 +35,7 @@ kiva_mpi_region <- read_csv("D:/Downloads/kiva_mpi_region_locations.csv")
 loan_theme_ids <- read_csv("D:/Downloads/loan_theme_ids.csv.zip")
 loan_themes_region_ <- read_csv("D:/Downloads/loan_themes_by_region.csv.zip")
 
+colnames(kiva_loans)
 
 conflictsdata <- read_csv("D:/Downloads/african_conflicts.csv.zip", col_types = cols(
   .default = col_character(),
@@ -263,9 +265,9 @@ plotLoansAndSectorByCountry(kiva_loans,"Kenya",fillColor)
 png("most popular sector2.png", width = 800, height = 600)
 
 
-plotLoansAndSectorByCountry <- function(country_loans_clean, countryName,fillColor2) {
-  country_loans_clean %>%
-    filter(country == countryName) %>%
+plotLoansAndSectorByCountry <- function(kiva_loans, countryName,fillColor2) {
+  kiva_loans %>%
+    filter(country == country) %>%
     group_by(sector) %>%
     summarise(Count = n()) %>%
     arrange(desc(Count)) %>%
@@ -285,12 +287,15 @@ plotLoansAndSectorByCountry <- function(country_loans_clean, countryName,fillCol
     theme_bw()
 }
 
-plotLoansAndSectorByCountry(country_loans_clean,"Kenya",fillColor)
+plotLoansAndSectorByCountry(kiva_loans,"Kenya",fillColor)
 
+colnames(country_loans_clean)
+colnames(country_loans)
+colnames(kiva_loans)
 
-plotLoansAndActivityByCountry <- function(country_loans_clean, countryName,fillColor2) {
-  country_loans_clean %>%
-    filter(country == countryName) %>%
+plotLoansAndActivityByCountry <- function(kiva_loans, countryName,fillColor2) {
+  kiva_loans %>%
+    filter(country == country) %>%
     group_by(activity) %>%
     summarise(Count = n()) %>%
     arrange(desc(Count)) %>%
@@ -310,4 +315,76 @@ plotLoansAndActivityByCountry <- function(country_loans_clean, countryName,fillC
     theme_bw()
 }
 
-plotLoansAndActivityByCountry(country_loans_clean,"Kenya",fillColor2)
+plotLoansAndActivityByCountry(kiva_loans,"Kenya",fillColor2)
+
+
+#most popular loans
+
+plotLoansAndUseByCountry <- function(kiva_loans, country,fillColor2) {
+  kiva_loans %>%
+    filter(country == country) %>%
+    filter(!is.na(use)) %>%
+    group_by(use) %>%
+    summarise(Count = n()) %>%
+    arrange(desc(Count)) %>%
+    ungroup() %>%
+    mutate(use = reorder(use,Count)) %>%
+    head(10) %>%
+    
+    ggplot(aes(x = use,y = Count)) +
+    geom_bar(stat='identity',colour="white", fill = fillColor2) +
+    geom_text(aes(x = use, y = 1, label = paste0("(",Count,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'Use of Loans', 
+         y = 'Count', 
+         title = 'Use of Loans and Count') +
+    coord_flip() +
+    theme_bw() 
+}
+
+plotLoansAndUseByCountry(kiva_loans,"Kenya",fillColorLightCoral)
+
+
+fundedLoanAmountDistribution <- function(kiva_loans)
+{
+  kiva_loans %>%
+    ggplot(aes(x = funded_amount) )+
+    scale_x_log10(
+      breaks = scales::trans_breaks("log10", function(x) 10^x),
+      labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    scale_y_log10(
+      breaks = scales::trans_breaks("log10", function(x) 10^x),
+      labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) + 
+    geom_histogram(fill = fillColor2,bins=50) +
+    labs(x = 'Funded Loan Amount' ,y = 'Count', title = paste("Distribution of", "Funded Loan Amount")) +
+    theme_bw()
+}
+
+country_loans_clean <- country_loans %>%
+  filter(funded_amount > 0)  # Ensure 'fundedLoanAmount' is the correct column
+country_loans_clean <- country_loans %>%
+  filter(!is.na(funded_amount))  # Remove rows with NA values
+summary(country_loans_clean$funded_amount)  # Check for unusual values or outliers
+
+ggplot(country_loans_clean, aes(x = funded_amount)) +
+  geom_histogram(binwidth = 5000)  # Adjust as needed for visualization
+
+
+
+country_loans_clean = kiva_loans %>%
+  filter(country == "Kenya")
+
+fundedLoanAmountDistribution(country_loans_clean)
+
+
+country_loans_clean %>%
+  filter(funded_amount > 0, !is.na(funded_amount)) %>%
+  ggplot(aes(x = funded_amount)) +
+  geom_histogram(bins = 30) +
+  scale_x_log10() +  # Apply log scale
+  scale_y_log10() +  # Apply log scale
+  labs(title = "Funded Loan Amount Distribution", x = "Funded Loan Amount (Log Scale)", y = "Frequency")
+
