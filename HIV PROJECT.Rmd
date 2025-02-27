@@ -1,0 +1,225 @@
+---
+title: "HIV/AIDS Modelling"
+author: "Bonsoul"
+date: "2025-02-26"
+output: html_document
+---
+<!-- Loading libraries -->
+
+
+install.packages("corrplot")
+install.packages("randomForest")
+install.packages("lava")
+install.packages("caret")
+install.packages("survival")
+install.packages("survminer")
+
+
+library(survival)
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(readxl)
+library(tidyr)
+library(survminer)
+library(sf)
+library(tmap)
+
+
+<!-- Load the dataset -->
+
+df <- read_excel("D:/Downloads/data with variable names(4).xlsx", col_types = "text")
+
+str(df)
+
+<!-- Convert appropriate columns to appropriate data type -->
+
+<!--Categorical variables-->
+
+df$subcounty <- factor(df$subcounty)
+df$maritalstatus <- factor(df$maritalstatus)
+df$residence <- factor(df$residence)
+df$employmentstatus <- factor(df$employmentstatus)
+df$ancattendance <- factor(df$ancattendance)
+df$facilitylevelanc <- factor(df$facilitylevelanc)
+df$hivstatusbeforepregnancy <- factor(df$hivstatusbeforepregnancy)
+df$syphillis <- factor(df$syphillis)
+df$uti <- factor(df$uti)
+df$miscarriage <- factor(df$miscarriage)
+df$abortion <- factor(df$abortion)
+df$stillbirth <- factor(df$stillbirth)
+df$premature <- factor(df$premature)
+df$haartduringpregnancy <- factor(df$haartduringpregnancy)
+df$historyofstiduringpregnancy <- factor(df$historyofstiduringpregnancy)
+df$genitalwart <- factor(df$genitalwart)
+df$vaginaldischargesyndrome <- factor(df$vaginaldischargesyndrome)
+df$genitalherpes <- factor(df$genitalherpes)
+df$treatedduringpregnancy <- factor(df$treatedduringpregnancy)
+df$malaria <- factor(df$malaria)
+df$anaemia <- factor(df$anaemia)
+df$hypertention <- factor(df$hypertention)
+df$patnershivstatus <- factor(df$patnershivstatus)
+df$whohivdiseasestage <- factor(df$whohivdiseasestage)
+df$sexofthebaby <- factor(df$sexofthebaby)
+df$birthpcr <- factor(df$birthpcr)
+df$weekspcr <- factor(df$weekspcr)
+df$monthspcr <- factor(df$monthspcr)
+df$yearpcr <- factor(df$yearpcr)
+df$monthsantibodytest <- factor(df$monthsantibodytest)
+df$educationlevel <- factor(df$educationlevel, 
+                             levels = c("never attended school", "primary", "secondary", "tertiary"))
+df$adherence <- factor(df$adherence, 
+                       levels = c("poor", "fair", "good"))
+
+<!--Numeric variables-->
+
+df$age <- as.numeric(df$age)
+df$weightkg <- as.numeric(df$weightkg)
+df$bwtkgs <- as.numeric(df$bwtkgs)
+df$gestationatfirstancwks <- as.numeric(df$gestationatfirstancwks)
+df$babywt6wks <- as.numeric(df$babywt6wks)
+df$cd4cellcountcellsmm3 <- factor(df$cd4cellcountcellsmm3, 
+                                  levels = c("below 200", "200-500", "above 500"))
+df$numberofchildren <- as.numeric(df$numberofchildren)
+df$numberofancvisitsmade <- as.numeric(df$numberofancvisitsmade)
+df$hemoglobinlevelduringpregnancy <- as.numeric(df$hemoglobinlevelduringpregnancy)
+df$time <- as.numeric(df$time)
+df$lduration <- gsub("over 15", "16", df$lduration)  # Handle "over 15" case
+df$durationofbfmonths <- as.numeric(df$durationofbfmonths)
+df$var51 <- as.numeric(df$var51)
+df$var52 <- as.numeric(df$var52)
+
+str(df)
+
+
+<!--Rename coordinate columns for clarity-->
+
+df <- df %>%
+  rename(latitude = var52, longitude = var51)
+
+
+<!--Summary of the dataset to verify changes-->
+
+summary(df)
+
+<!--Data Exploration-->
+
+duplicates <- df[duplicated(df),]
+
+print(duplicates)
+
+<!--No duplicates-->
+
+missing_per_column <- colSums(is.na(df))
+total_missing <- sum(missing_per_column)
+print(total_missing)
+print(missing_per_column)
+
+columns_with_missing <- names(missing_per_column[missing_per_column > 0])
+print(columns_with_missing)
+
+<!--Compute summary statistics for numeric columns-->
+
+summary_stats <- df %>%
+  select(where(is.numeric)) %>%
+  summarise(across(everything(), list(
+    min = ~min(., na.rm = TRUE),
+    Q1 = ~quantile(., 0.25, na.rm = TRUE),
+    median = ~median(., na.rm = TRUE),
+    mean = ~mean(., na.rm = TRUE),
+    Q3 = ~quantile(., 0.75, na.rm = TRUE),
+    max = ~max(., na.rm = TRUE),
+    sd = ~sd(., na.rm = TRUE)
+  )))
+
+summary(summary_stats)
+
+<!--Visualize distributions with histograms-->
+
+numeric_cols <- df %>% select(where(is.numeric)) %>% colnames()
+numeric_cols <- setdiff(numeric_cols, c("longitude", "latitude"))
+
+for (col in numeric_cols) {
+  p <- ggplot(df, aes_string(x = col)) +
+    geom_histogram(binwidth = 30, fill = "blue", alpha = 0.7) +
+    ggtitle(paste("Histogram of", col)) +
+    theme_minimal()
+  print(p)
+}
+
+png('histogram.png')
+dev.off()
+
+<!--Boxplot-->
+
+for (col in numeric_cols) {
+  p <- ggplot(df, aes(y = .data[[col]])) +  # Fix aes_string() issue
+    geom_boxplot(fill = "lightblue", na.rm = TRUE) +  # Handle NAs
+    ggtitle(paste("Boxplot of", col)) +
+    theme_minimal()
+  print(p)
+}
+
+df_clean <- df %>%
+  drop_na(time, hivstatusbeforepregnancy)
+
+<!--Create survival object-->
+
+surv_obj <- Surv(time = df_clean$time, event = df_clean$hivstatusbeforepregnancy)
+
+<!--Fit Kaplan-Meier survival model-->
+
+km_fit <- survfit(surv_obj ~ 1, data = df_clean)
+
+<!--Plot Kaplan-Meier curve-->
+
+ggsurvplot(km_fit, data = df_clean, conf.int = TRUE,
+           ggtheme = theme_minimal(),
+           title = "Kaplan-Meier Survival Curve",
+           xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
+
+
+df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
+
+County <- st_read("D:/Downloads/County_shapefile/County.shp")
+View(County)
+
+
+kenya_shp <- st_read("C:/Users/pc/Desktop/Counties Shape File/County.shp")
+homabay_shp <- kenya_shp %>% filter(COUNTY == "Homa Bay")
+homabay_shp
+
+homabay_data <- st_join(homabay_shp, df_sf)
+
+
+df_sf <- df_sf %>% mutate(HIV_positive = ifelse(syphillis == "positive", 1, 0))
+
+colnames(homabay_shp)
+colnames(hiv_counts)
+
+
+hiv_counts <- df_sf %>%
+  group_by(subcounty) %>%
+  summarize(total_cases = sum(HIV_positive, na.rm = TRUE))
+
+hiv_counts <- st_drop_geometry(hiv_counts)
+
+homabay_shp <- homabay_shp %>%
+  left_join(hiv_counts, by = "subcounty")
+
+
+
+
+ggplot() +
+  geom_sf(data = homabay_shp, fill = "lightblue", color = "black") +
+  geom_sf(data = df_sf, aes(color = patient_density), size = 2) +
+  scale_color_viridis_c(name = "Patient Density") +
+  labs(title = "Study Area: Homa Bay County", x = "Longitude", y = "Latitude") +
+  theme_minimal()
+
+
+
+
