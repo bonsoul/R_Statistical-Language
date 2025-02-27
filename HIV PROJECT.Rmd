@@ -31,66 +31,7 @@ library(tmap)
 
 <!-- Load the dataset -->
 
-df <- read_excel("D:/Downloads/data with variable names(4).xlsx", col_types = "text")
-
-str(df)
-
-<!-- Convert appropriate columns to appropriate data type -->
-
-<!--Categorical variables-->
-
-df$subcounty <- factor(df$subcounty)
-df$maritalstatus <- factor(df$maritalstatus)
-df$residence <- factor(df$residence)
-df$employmentstatus <- factor(df$employmentstatus)
-df$ancattendance <- factor(df$ancattendance)
-df$facilitylevelanc <- factor(df$facilitylevelanc)
-df$hivstatusbeforepregnancy <- factor(df$hivstatusbeforepregnancy)
-df$syphillis <- factor(df$syphillis)
-df$uti <- factor(df$uti)
-df$miscarriage <- factor(df$miscarriage)
-df$abortion <- factor(df$abortion)
-df$stillbirth <- factor(df$stillbirth)
-df$premature <- factor(df$premature)
-df$haartduringpregnancy <- factor(df$haartduringpregnancy)
-df$historyofstiduringpregnancy <- factor(df$historyofstiduringpregnancy)
-df$genitalwart <- factor(df$genitalwart)
-df$vaginaldischargesyndrome <- factor(df$vaginaldischargesyndrome)
-df$genitalherpes <- factor(df$genitalherpes)
-df$treatedduringpregnancy <- factor(df$treatedduringpregnancy)
-df$malaria <- factor(df$malaria)
-df$anaemia <- factor(df$anaemia)
-df$hypertention <- factor(df$hypertention)
-df$patnershivstatus <- factor(df$patnershivstatus)
-df$whohivdiseasestage <- factor(df$whohivdiseasestage)
-df$sexofthebaby <- factor(df$sexofthebaby)
-df$birthpcr <- factor(df$birthpcr)
-df$weekspcr <- factor(df$weekspcr)
-df$monthspcr <- factor(df$monthspcr)
-df$yearpcr <- factor(df$yearpcr)
-df$monthsantibodytest <- factor(df$monthsantibodytest)
-df$educationlevel <- factor(df$educationlevel, 
-                             levels = c("never attended school", "primary", "secondary", "tertiary"))
-df$adherence <- factor(df$adherence, 
-                       levels = c("poor", "fair", "good"))
-
-<!--Numeric variables-->
-
-df$age <- as.numeric(df$age)
-df$weightkg <- as.numeric(df$weightkg)
-df$bwtkgs <- as.numeric(df$bwtkgs)
-df$gestationatfirstancwks <- as.numeric(df$gestationatfirstancwks)
-df$babywt6wks <- as.numeric(df$babywt6wks)
-df$cd4cellcountcellsmm3 <- factor(df$cd4cellcountcellsmm3, 
-                                  levels = c("below 200", "200-500", "above 500"))
-df$numberofchildren <- as.numeric(df$numberofchildren)
-df$numberofancvisitsmade <- as.numeric(df$numberofancvisitsmade)
-df$hemoglobinlevelduringpregnancy <- as.numeric(df$hemoglobinlevelduringpregnancy)
-df$time <- as.numeric(df$time)
-df$lduration <- gsub("over 15", "16", df$lduration)  # Handle "over 15" case
-df$durationofbfmonths <- as.numeric(df$durationofbfmonths)
-df$var51 <- as.numeric(df$var51)
-df$var52 <- as.numeric(df$var52)
+df <- read_excel("D:/Downloads/HIV - VARIABLES.xlsx")
 
 str(df)
 
@@ -163,12 +104,18 @@ for (col in numeric_cols) {
   print(p)
 }
 
+df <- df %>%
+  mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
+
+table(df$monthsantibodytest)
+
+
 df_clean <- df %>%
-  drop_na(time, hivstatusbeforepregnancy)
+  drop_na(time, monthsantibodytest)
 
 <!--Create survival object-->
 
-surv_obj <- Surv(time = df_clean$time, event = df_clean$hivstatusbeforepregnancy)
+surv_obj <- Surv(time = df_clean$time, event = df_clean$monthsantibodytest)
 
 <!--Fit Kaplan-Meier survival model-->
 
@@ -180,6 +127,22 @@ ggsurvplot(km_fit, data = df_clean, conf.int = TRUE,
            ggtheme = theme_minimal(),
            title = "Kaplan-Meier Survival Curve",
            xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
+
+surv_diff <- survdiff(surv_obj ~ df_clean$monthsantibodytest, data = df_clean)
+print(surv_diff)
+
+
+cox_model <- coxph(Surv(time, monthsantibodytest) ~ 
+                    subcounty + maritalstatus + breastfeeding_status + 
+                    birth_order + socioeconomic_status + education + 
+                    mode_of_delivery + ANC_attendance + PNC_attendance + 
+                    marital_status + economic_activity + family_size + 
+                    other_infections + maternal_WHO_staging + maternal_TB, 
+                   data = df)
+
+# Display results
+summary(cox_model)
+
 
 
 df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
