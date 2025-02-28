@@ -13,8 +13,16 @@ install.packages("lava")
 install.packages("caret")
 install.packages("survival")
 install.packages("survminer")
+install.packages("DCluster")
+install.packages("INLA", repos = c("https://inla.r-inla-download.org/R/stable", getOption("repos")))
+
+help("inla")
 
 
+
+
+
+library(INLA)
 library(survival)
 library(tidyverse)
 library(caret)
@@ -64,6 +72,7 @@ print(columns_with_missing)
 
 <!--Compute summary statistics for numeric columns-->
 
+
 summary_stats <- df %>%
   select(where(is.numeric)) %>%
   summarise(across(everything(), list(
@@ -110,8 +119,36 @@ df <- df %>%
 table(df$monthsantibodytest)
 
 
-df_clean <- df %>%
-  drop_na(time, monthsantibodytest)
+
+<!--Chi-square test used for comparisons
+-->
+
+cat_vars <- names(df)[sapply(df, function(x) is.character(x) | is.factor(x))]
+cat_vars <- setdiff(cat_vars, "monthsantibodytest")
+
+chi_results <- data.frame(Variable = character(), Chi_Square = numeric(), P_Value = numeric())
+
+for (var in cat_vars) {
+  tbl <- table(df[[var]], df$monthsantibodytest)  
+  test <- chisq.test(tbl)
+  chi_results <- rbind(chi_results, data.frame(
+    Variable = var, 
+    Chi_Square = signif(test$statistic, 5), 
+    P_Value = signif(test$p.value, 5)
+  ))
+}
+
+chi_results <- chi_results[order(chi_results$P_Value), ]
+
+print(chi_results)
+
+write.csv(chi_results, file = "chi_results.csv", row.names = FALSE)
+
+
+
+
+
+
 
 <!--Create survival object-->
 
@@ -128,37 +165,164 @@ ggsurvplot(km_fit, data = df_clean, conf.int = TRUE,
            title = "Kaplan-Meier Survival Curve",
            xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
 
+df_clean <- na.omit(df)
+
+df_clean$monthsantibodytest_binary <- ifelse(df_clean$monthsantibodytest > 0, 1, 0)
+
+    
+logit_model <- glm(monthsantibodytest_binary ~ age + weightkg + maritalstatus + residence, 
+                   data = df_clean, family = binomial)
+summary(logit_model)
+
+
+
 surv_diff <- survdiff(surv_obj ~ df_clean$monthsantibodytest, data = df_clean)
 print(surv_diff)
 
 
 cox_model <- coxph(Surv(time, monthsantibodytest) ~ 
-                    subcounty + maritalstatus + breastfeeding_status + 
-                    birth_order + socioeconomic_status + education + 
-                    mode_of_delivery + ANC_attendance + PNC_attendance + 
-                    marital_status + economic_activity + family_size + 
-                    other_infections + maternal_WHO_staging + maternal_TB, 
+                    subcounty + maritalstatus + hivstatusbeforepregnancy + 
+                    miscarriage + haartduringpregnancy + historyofstiduringpregnancy + 
+                    hemoglobinlevelduringpregnancy + durationofbfmonths,
                    data = df)
 
-# Display results
+
 summary(cox_model)
+colnames(df)
+
+logit_model <- glm(subcounty+monthsantibodytest ~ age + weightkg + maritalstatus + residence, 
+                   data = df, family = binomial)
+summary(logit_model)
+
+capture.output(summary(logit_model), file = "logit_model_summary.txt")
+
+predictors_logit <- c("age", "weightkg", "maritalstatus", "residence",
+                      "employmentstatus", "hivstatusbeforepregnancy","ancattendance", "facilitylevelanc",
+                      "educationlevel", "adherence","cd4cellcountcellsmm3")
+
+
+bivar_logit_results <- lapply(predictors_logit, function(var) {
+  form <- as.formula(paste("monthsantibodytest ~", var))
+  mod <- glm(form, data = df, family = binomial)
+  s <- summary(mod)
+ coef_info <- s$coefficients[2, ]
+ or_val <- exp(coef_info[1])
+  ci <- exp(confint(mod)[2, ])
+  data.frame(Variable = var,
+             Estimate = coef_info[1],
+             StdError = coef_info[2],
+             Z_value = coef_info[3],
+             P_value = coef_info[4],
+             Odds_Ratio = or_val,
+             CI_lower = ci[1],
+             CI_upper = ci[2],
+             row.names = NULL)
+})
+
+
+
+bivar_logit_results <- do.call(rbind, bivar_logit_results)
+print(bivar_logit_results)
+
+bivar_logit_results <- as.data.frame(do.call(rbind, bivar_logit_results))
+
+write.table(bivar_logit_results, "bivar_logit_results.txt", sep = "\t", row.names = TRUE, quote = FALSE)
+
+
+
+
+selected_cox <- bivar_logit_results %>%
+  filter(P_value < 0.05) %>%
+  pull(Variable)
+
+
+
+
+
+if(length(selected_cox) > 0) {
+  # Build multivariate Cox model using selected predictors
+  form_multi_cox <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(selected_cox, collapse = " + ")))
+  multi_cox_model <- coxph(form_multi_cox, data = df)
+  print("Multivariate Cox Regression Model Summary:")
+  print(summary(multi_cox_model))
+} else {
+  cat("No predictors reached p < 0.05 in bivariate Cox regression. \nConsider using all candidate predictors.\n")
+  # Alternatively, force a multivariate model with all predictors:
+  form_multi_cox <- as.formula(paste("Surv(_t, _d) ~", paste(predictors_cox, collapse = " + ")))
+  multi_cox_model <- coxph(form_multi_cox, data = df)
+  print("Multivariate Cox Regression Model Summary (using all predictors):")
+  print(summary(multi_cox_model))
+}
+
+
+sink("multi_cox_model_summary.txt")  # Redirect output to a file
+print("Multivariate Cox Regression Model Summary (using all predictors):")
+print(summary(multi_cox_model))  # Print model summary
+sink()  # Stop redirecting output
+
+# Confirmation message
+print("Cox model summary has been saved as 'multi_cox_model_summary.txt'.")
+
+
+
+
+
+
+<!--Geographical-->
+
+
+file.exists("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
+
+
+
+sub_county <- st_read("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
+
+
+print(sub_county)
+
+
+
+ggplot(data = sub_county) +
+  geom_sf(fill = "lightblue", color = "black", size = 0.3) +
+  labs(title = "Kenya Sub-Counties Map") +
+  theme_minimal()
+
+ggsave("Kenya_Sub_Counties_Map.png", width = 10, height = 7, dpi = 300)
+
+
+
+
+
+ggplot(data = sub_county) +
+  geom_sf(fill = "lightblue", color = "black", size = 0.3) +
+  geom_text(data = sub_county, aes(label = subcounty, geometry = geometry), 
+            stat = "sf_coordinates", size = 3, color = "red") +
+  labs(title = "Kenya Sub-Counties with Labels") +
+  theme_minimal()
+
+
+
 
 
 
 df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
 
-County <- st_read("D:/Downloads/County_shapefile/County.shp")
-View(County)
 
 
-kenya_shp <- st_read("C:/Users/pc/Desktop/Counties Shape File/County.shp")
-homabay_shp <- kenya_shp %>% filter(COUNTY == "Homa Bay")
+
+
+
+
+
+
+
+homabay_shp <- sub_county %>% filter(county == "Homa Bay")
 homabay_shp
 
 homabay_data <- st_join(homabay_shp, df_sf)
 
 
-df_sf <- df_sf %>% mutate(HIV_positive = ifelse(syphillis == "positive", 1, 0))
+df_sf <- df_sf %>% mutate(HIV_positive = ifelse(monthsantibodytest == "positive", 1, 0))
 
 colnames(homabay_shp)
 colnames(hiv_counts)
@@ -175,6 +339,10 @@ homabay_shp <- homabay_shp %>%
 
 
 
+spatial_model <- inla(monthsantibodytest ~ age + weightkg + f(longitude, model = "besag", graph = nb),
+                      data = df, family = "binomial")
+summary(spatial_model)
+
 
 ggplot() +
   geom_sf(data = homabay_shp, fill = "lightblue", color = "black") +
@@ -182,7 +350,5 @@ ggplot() +
   scale_color_viridis_c(name = "Patient Density") +
   labs(title = "Study Area: Homa Bay County", x = "Longitude", y = "Latitude") +
   theme_minimal()
-
-
 
 
