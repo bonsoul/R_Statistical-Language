@@ -1,0 +1,33 @@
+
+Call:
+glm(formula = monthsantibodytest ~ age + weightkg + maritalstatus + 
+    residence, family = binomial, data = df)
+
+Coefficients:
+                      Estimate Std. Error z value
+(Intercept)          -2.650387   1.429801  -1.854
+age                   0.011299   0.034999   0.323
+weightkg              0.001609   0.018009   0.089
+maritalstatussingle   0.328653   0.680769   0.483
+maritalstatuswidowed -0.299180   1.074247  -0.279
+residenceurban        0.155998   0.447133   0.349
+                     Pr(>|z|)  
+(Intercept)            0.0638 .
+age                    0.7468  
+weightkg               0.9288  
+maritalstatussingle    0.6293  
+maritalstatuswidowed   0.7806  
+residenceurban         0.7272  
+---
+Signif. codes:  
+0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 213.49  on 324  degrees of freedom
+Residual deviance: 212.89  on 319  degrees of freedom
+  (12 observations deleted due to missingness)
+AIC: 224.89
+
+Number of Fisher Scoring iterations: 5
+
