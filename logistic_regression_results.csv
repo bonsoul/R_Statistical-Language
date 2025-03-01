@@ -1,0 +1,33 @@
+"Predictor","Estimate","Std_Error","Z_value","P_value"
+"(Intercept)",-84.323,585612.139,0,1
+"Subcounty: Kabondo Kasipul",-56.971,334425.376,0,1
+"Subcounty: Karachauony",-19.582,157955.115,0,1
+"Subcounty: Kasipul",-5.119,240849.174,0,1
+"Subcounty: Mbita",3.777,153202.123,0,1
+"Subcounty: Ndhiwa",1.233,192397.399,0,1
+"Subcounty: Ragwe",-87.786,242622.569,0,1
+"Subcounty: Suba",-20.482,290229.82,0,1
+"Marital Status: Single",20.216,120134.324,0,1
+"Marital Status: Widowed",-8.82,208805.281,0,1
+"Urban Residence",6.025,236523.955,0,1
+"Employment Status: Self Employed",-9.72,77419.541,0,1
+"Employment Status: Unemployed",-36.637,123230.326,0,1
+"ANC Attendance: Yes",-21.009,519877.895,0,1
+"Facility Level ANC: Level 3",-20.228,140024.556,0,1
+"Facility Level ANC: Level 4",13.529,139038.048,0,1
+"Facility Level ANC: Level 5",-6.875,231333.732,0,1
+"Facility Level ANC: Private",19.258,388913.456,0,1
+"HIV Status Before Pregnancy: Unknown",19.74,394862.86,0,1
+"Syphillis Positive",46.634,363238.72,0,1
+"UTI: Yes",-26.305,196153.929,0,1
+"Education Level: Never Attended School",142.973,194100.766,0.001,0.999
+"Education Level: Primary",37.468,179789.105,0,1
+"Education Level: Secondary",17.769,125204.611,0,1
+"Sex of the Baby: Male",1.568,123047.456,0,1
+"WHO HIV Disease Stage: Stage II",-39.892,18588.644,-0.002,0.998
+"WHO HIV Disease Stage: Stage III",62.725,453613.175,0,1
+"WHO HIV Disease Stage: Stage IV",156.989,109178.145,0.001,0.999
+"Partner's HIV Status: Positive",8,146687.037,0,1
+"Partner's HIV Status: Unknown",37.587,285495.234,0,1
+"Membrane Rupture: Premature",11.201,119636.658,0,1
+"Membrane Rupture: Spontaneous",49.854,214775.524,0,1
