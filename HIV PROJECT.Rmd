@@ -22,7 +22,7 @@ help("inla")
 
 
 
-library(INLA)
+
 library(survival)
 library(tidyverse)
 library(caret)
@@ -107,7 +107,7 @@ dev.off()
 
 for (col in numeric_cols) {
   p <- ggplot(df, aes(y = .data[[col]])) +  # Fix aes_string() issue
-    geom_boxplot(fill = "lightblue", na.rm = TRUE) +  # Handle NAs
+    geom_boxplot(fill = "lightblue", na.rm = TRUE) +
     ggtitle(paste("Boxplot of", col)) +
     theme_minimal()
   print(p)
@@ -152,15 +152,15 @@ write.csv(chi_results, file = "chi_results.csv", row.names = FALSE)
 
 <!--Create survival object-->
 
-surv_obj <- Surv(time = df_clean$time, event = df_clean$monthsantibodytest)
+surv_obj <- Surv(time = df$time, event = df$monthsantibodytest)
 
 <!--Fit Kaplan-Meier survival model-->
 
-km_fit <- survfit(surv_obj ~ 1, data = df_clean)
+km_fit <- survfit(surv_obj ~ 1, data = df)
 
 <!--Plot Kaplan-Meier curve-->
 
-ggsurvplot(km_fit, data = df_clean, conf.int = TRUE,
+ggsurvplot(km_fit, data = df, conf.int = TRUE,
            ggtheme = theme_minimal(),
            title = "Kaplan-Meier Survival Curve",
            xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
@@ -169,11 +169,16 @@ df_clean <- na.omit(df)
 
 df_clean$monthsantibodytest_binary <- ifelse(df_clean$monthsantibodytest > 0, 1, 0)
 
-    
-logit_model <- glm(monthsantibodytest_binary ~ age + weightkg + maritalstatus + residence, 
+
+<!--Logistic Regresson-->
+logit_model <- glm(monthsantibodytest_binary ~ subcounty + maritalstatus + residence + employmentstatus + ancattendance + facilitylevelanc + hivstatusbeforepregnancy + syphillis + uti +  educationlevel + sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner,
                    data = df_clean, family = binomial)
 summary(logit_model)
 
+
+
+
+<!--Cox Proportional Regression-->
 
 
 surv_diff <- survdiff(surv_obj ~ df_clean$monthsantibodytest, data = df_clean)
@@ -181,20 +186,13 @@ print(surv_diff)
 
 
 cox_model <- coxph(Surv(time, monthsantibodytest) ~ 
-                    subcounty + maritalstatus + hivstatusbeforepregnancy + 
-                    miscarriage + haartduringpregnancy + historyofstiduringpregnancy + 
-                    hemoglobinlevelduringpregnancy + durationofbfmonths,
+                    monthsantibodytest_binary ~ subcounty + maritalstatus + residence + employmentstatus + ancattendance + facilitylevelanc + hivstatusbeforepregnancy + syphillis + uti +  educationlevel + sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner,
                    data = df)
 
 
 summary(cox_model)
-colnames(df)
 
-logit_model <- glm(subcounty+monthsantibodytest ~ age + weightkg + maritalstatus + residence, 
-                   data = df, family = binomial)
-summary(logit_model)
-
-capture.output(summary(logit_model), file = "logit_model_summary.txt")
+<!--bivariate model-->
 
 predictors_logit <- c("age", "weightkg", "maritalstatus", "residence",
                       "employmentstatus", "hivstatusbeforepregnancy","ancattendance", "facilitylevelanc",
@@ -239,8 +237,7 @@ selected_cox <- bivar_logit_results %>%
 
 
 
-if(length(selected_cox) > 0) {
-  # Build multivariate Cox model using selected predictors
+if(length(selected_cox) > 0) {# Build multivariate Cox model using selected predictors
   form_multi_cox <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(selected_cox, collapse = " + ")))
   multi_cox_model <- coxph(form_multi_cox, data = df)
   print("Multivariate Cox Regression Model Summary:")
