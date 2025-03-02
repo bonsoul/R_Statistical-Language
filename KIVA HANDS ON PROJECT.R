@@ -61,8 +61,16 @@ colnames(conflictsdata)  # Print all column names
 # Summary of the datasets
 glimpse(overall_poverty_est)
 
-list.files("C:/Users/pc/Desktop/Counties Shape File/County.shp")
-p_regions_map <- st_read("C:/Users/pc/Desktop/Counties Shape File/County.shp")
+
+
+unzip("D:/Downloads/archive(5).zip", list = TRUE)
+
+unzip("D:/Downloads/archive(5).zip", exdir = "D:/Downloads/extracted/")
+
+
+list.files("D:/Downloads/extracted/")
+
+p_regions_map <- st_read("D:/Downloads/extracted/County.shp")
 print(p_regions_map)
 
 
@@ -138,8 +146,7 @@ plotPovertyMap <- function(p_regions_map) {
 
 plotPovertyMapForDS <- function(dataset) {
   # Read shapefile using sf
-  p_regions_map <- st_read("C:/Users/pc/Desktop/Counties Shape File/County.shp")
-  
+  p_regions_map <- st_read("D:/Downloads/extracted/County.shp")
   # Convert COUNTY column to character
   p_regions_map$COUNTY <- as.character(p_regions_map$COUNTY)
   
