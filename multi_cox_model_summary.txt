@@ -1,133 +1,31 @@
 [1] "Multivariate Cox Regression Model Summary (using all predictors):"
-[1] TRUE
-Reading layer `ke_subcounty' from data source 
-  `C:\Users\pc\Desktop\Counties Shape File\ke_subcounty.shp' 
-  using driver `ESRI Shapefile'
-Simple feature collection with 304 features and 8 fields
-Geometry type: MULTIPOLYGON
-Dimension:     XY
-Bounding box:  xmin: 33.9105 ymin: -4.67973 xmax: 41.91056 ymax: 5.466979
-Geodetic CRS:  WGS 84
-Simple feature collection with 304 features and 8 fields
-Geometry type: MULTIPOLYGON
-Dimension:     XY
-Bounding box:  xmin: 33.9105 ymin: -4.67973 xmax: 41.91056 ymax: 5.466979
-Geodetic CRS:  WGS 84
-First 10 features:
-   country provpcode province ctypcode  county   scpcode
-1    Kenya   KEN_1_1    Coast  KEN_2_1 Mombasa   KEN_3_6
-2    Kenya   KEN_1_7   Nyanza KEN_2_42  Kisumu KEN_3_240
-3    Kenya   KEN_1_3  Eastern KEN_2_15   Kitui  KEN_3_70
-4    Kenya   KEN_1_6  Western KEN_2_39 Bungoma KEN_3_219
-5    Kenya   KEN_1_7   Nyanza KEN_2_42  Kisumu KEN_3_244
-6    Kenya   KEN_1_7   Nyanza KEN_2_46 Nyamira KEN_3_273
-7    Kenya   KEN_1_3  Eastern KEN_2_17 Makueni  KEN_3_86
-8    Kenya   KEN_1_1    Coast  KEN_2_3  Kilifi  KEN_3_15
-9    Kenya   KEN_1_4  Central KEN_2_19   Nyeri      <NA>
-10   Kenya   KEN_1_3  Eastern KEN_2_12    Meru  KEN_3_54
-                   subcounty    dhis2_id
-1          Mvita  Sub County C1xuoa1NAMm
-2  Kisumu Central Sub County OpLt8IgyHop
-3     Kitui West  Sub County cmWAJB5kCDW
-4          Bumula Sub County jkQZEow83MX
-5         Nyakach Sub County kBQIjtWUBqj
-6          Borabu Sub County ABuzigW8Lzw
-7        Makueni  Sub County AIGIQpolMRn
-8           Ganze Sub County x7qUMtZZvo9
-9      Kieni West Sub County odOtfcaMg4p
-10   Tigania West Sub County Q4xAPhWUnYC
-                         geometry
-1  MULTIPOLYGON (((39.6776 -4....
-2  MULTIPOLYGON (((34.76317 -0...
-3  MULTIPOLYGON (((38.03021 -1...
-4  MULTIPOLYGON (((34.52783 0....
-5  MULTIPOLYGON (((35.00564 -0...
-6  MULTIPOLYGON (((35.06618 -0...
-7  MULTIPOLYGON (((37.91261 -1...
-8  MULTIPOLYGON (((39.78897 -3...
-9  MULTIPOLYGON (((36.9595 -0....
-10 MULTIPOLYGON (((37.78377 0....
- [1] "subcounty"                     
- [2] "age"                           
- [3] "weightkg"                      
- [4] "bwtkgs"                        
- [5] "babywt6wks"                    
- [6] "maritalstatus"                 
- [7] "residence"                     
- [8] "employmentstatus"              
- [9] "ancattendance"                 
-[10] "facilitylevelanc"              
-[11] "distancetofacility"            
-[12] "gestationatfirstancwks"        
-[13] "hivstatusbeforepregnancy"      
-[14] "syphillis"                     
-[15] "uti"                           
-[16] "miscarriage"                   
-[17] "abortion"                      
-[18] "stillbirth"                    
-[19] "premature"                     
-[20] "haartduringpregnancy"          
-[21] "cd4cellcountcellsmm3"          
-[22] "historyofstiduringpregnancy"   
-[23] "genitalwart"                   
-[24] "vaginaldischargesyndrome"      
-[25] "genitalherpes"                 
-[26] "treatedduringpregnancy"        
-[27] "malaria"                       
-[28] "anaemia"                       
-[29] "hypertention"                  
-[30] "numberofchildren"              
-[31] "patnershivstatus"              
-[32] "whohivdiseasestage"            
-[33] "numberofancvisitsmade"         
-[34] "hemoglobinlevelduringpregnancy"
-[35] "tmembraner"                    
-[36] "lduration"                     
-[37] "durationofbfmonths"            
-[38] "sexofthebaby"                  
-[39] "birthpcr"                      
-[40] "weekspcr"                      
-[41] "monthspcr"                     
-[42] "yearpcr"                       
-[43] "monthsantibodytest"            
-[44] "educationlevel"                
-[45] "adherence"                     
-[46] "time"                          
-[47] "_st"                           
-[48] "_d"                            
-[49] "_t"                            
-[50] "_t0"                           
-[51] "longitude"                     
-[52] "latitude"                      
-Simple feature collection with 8 features and 8 fields
-Geometry type: MULTIPOLYGON
-Dimension:     XY
-Bounding box:  xmin: 33.92973 ymin: -0.8688908 xmax: 35.02241 ymax: -0.2908675
-Geodetic CRS:  WGS 84
-  country provpcode province ctypcode   county   scpcode
-1   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_249
-2   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_248
-3   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_252
-4   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_246
-5   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_245
-6   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_247
-7   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_250
-8   Kenya   KEN_1_7   Nyanza KEN_2_43 Homa Bay KEN_3_251
-                   subcounty    dhis2_id
-1   Homa Bay Town Sub County Ur2xRBDtazT
-2          Rangwe Sub County iK2Jk2AxhlD
-3            Suba Sub County HoRW5aISmiD
-4 Kabondo Kasipul Sub County BzFBYZhF5fx
-5         Kasipul Sub County NhsAMiaS0TD
-6     Karachuonyo Sub County fmsyW02tPng
-7          Ndhiwa Sub County i2Y2fyNoFyZ
-8           Mbita Sub County mCGytMcMf6y
-                        geometry
-1 MULTIPOLYGON (((34.50196 -0...
-2 MULTIPOLYGON (((34.63797 -0...
-3 MULTIPOLYGON (((34.17633 -0...
-4 MULTIPOLYGON (((34.88074 -0...
-5 MULTIPOLYGON (((34.64431 -0...
-6 MULTIPOLYGON (((34.63749 -0...
-7 MULTIPOLYGON (((34.53766 -0...
-8 MULTIPOLYGON (((33.94978 -0...
+Call:
+coxph(formula = form_multi_cox, data = df)
+
+  n= 318, number of events= 30 
+
+                                          coef  exp(coef)   se(coef)      z Pr(>|z|)    
+hivstatusbeforepregnancyunknown      1.506e+01  3.459e+06  4.465e+03  0.003 0.997310    
+ancattendanceyes                     1.442e+01  1.827e+06  4.465e+03  0.003 0.997424    
+educationlevelnever attended school  2.937e+00  1.887e+01  1.067e+00  2.752 0.005917 ** 
+educationlevelprimary                2.379e-01  1.269e+00  1.128e+00  0.211 0.833003    
+educationlevelsecondary             -1.700e-01  8.437e-01  1.162e+00 -0.146 0.883712    
+adherencegood                       -2.751e+00  6.387e-02  8.073e-01 -3.408 0.000655 ***
+adherencepoor                        7.822e-01  2.186e+00  4.423e-01  1.768 0.076990 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+                                    exp(coef) exp(-coef) lower .95 upper .95
+hivstatusbeforepregnancyunknown     3.459e+06  2.891e-07   0.00000       Inf
+ancattendanceyes                    1.827e+06  5.473e-07   0.00000       Inf
+educationlevelnever attended school 1.887e+01  5.300e-02   2.32953  152.8196
+educationlevelprimary               1.269e+00  7.883e-01   0.13898   11.5787
+educationlevelsecondary             8.437e-01  1.185e+00   0.08650    8.2293
+adherencegood                       6.387e-02  1.566e+01   0.01313    0.3108
+adherencepoor                       2.186e+00  4.574e-01   0.91877    5.2025
+
+Concordance= 0.957  (se = 0.011 )
+Likelihood ratio test= 135.9  on 7 df,   p=<2e-16
+Wald test            = 86.88  on 7 df,   p=5e-16
+Score (logrank) test = 304.6  on 7 df,   p=<2e-16
+
