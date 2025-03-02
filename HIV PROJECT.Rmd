@@ -171,6 +171,7 @@ df_clean$monthsantibodytest_binary <- ifelse(df_clean$monthsantibodytest > 0, 1,
 
 
 <!--Logistic Regresson-->
+
 logit_model <- glm(monthsantibodytest_binary ~ subcounty + maritalstatus + residence + employmentstatus + ancattendance + facilitylevelanc + hivstatusbeforepregnancy + syphillis + uti +  educationlevel + sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner,
                    data = df_clean, family = binomial)
 summary(logit_model)
@@ -316,10 +317,108 @@ df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
 homabay_shp <- sub_county %>% filter(county == "Homa Bay")
 homabay_shp
 
+
+ggplot() +
+  geom_sf(data = homabay_shp, fill = "lightblue", color = "black") +
+  ggtitle("Map of Homa Bay Sub-Counties") +
+  theme_minimal()
+
+colnames(homabay_shp)
+
+
+
+library(mgcv)
+colnames(homabay_shp)
+colnames(df)
+
+
+# Aggregate HIV cases by sub-county
+hiv_counts <- df_sf %>%
+  group_by(subcounty) %>%
+  summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
+
+# Drop geometry before joining
+hiv_counts <- st_drop_geometry(hiv_counts)
+
+# Join HIV data to the spatial object
+homabay_shp <- homabay_shp %>%
+  left_join(hiv_counts, by = "subcounty")
+
+# Fit Spatial Model using `mgcv` (Generalized Additive Model)
+
+spatial_model <- gam(monthsantibodytest ~ age + weightkg + s(longitude, latitude, bs = "tp"),
+                     data = df, family = binomial())
+
+# Display summary
+summary(spatial_model)
+
+# Plot the spatial map
+ggplot() +
+  geom_sf(data = homabay_shp, aes(fill = total_cases), color = "black") +
+  scale_fill_viridis_c(name = "HIV Cases") +
+  labs(title = "Study Area: Homa Bay County", x = "Longitude", y = "Latitude") +
+  theme_minimal()
+
+
+
+
+
+install.packages(c("sf", "spdep", "spatialreg", "scanstatistics", "R2BayesX"))
+
+library(sf)
+library(spdep)
+library(spatialreg)
+library(scanstatistics)
+library(R2BayesX)
+
+
+
+# Convert df_sf to an sf object (if not already)
+
+df_sf <- st_as_sf(df_sf)
+
+# Extract longitude and latitude (if missing)
+df_sf <- df_sf %>%
+  mutate(longitude = st_coordinates(.)[,1], 
+         latitude = st_coordinates(.)[,2])
+
+# Aggregate HIV cases by sub-county
+hiv_counts <- df_sf %>%
+  group_by(subcounty) %>%
+  summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
+
+# Drop geometry for merging
+hiv_counts <- st_drop_geometry(hiv_counts)
+
+# Merge with spatial data
+homabay_shp <- homabay_shp %>%
+  left_join(hiv_counts, by = "subcounty")
+
+
+
+# Create spatial neighbors
+nb <- poly2nb(homabay_shp) # Queen contiguity neighbors
+lw <- nb2listw(nb, style = "W") # Spatial weights matrix
+
+# Compute Moran's I (Global Spatial Autocorrelation)
+moran_test <- moran.test(homabay_shp$total_cases, listw = lw)
+print(moran_test)
+
+# Compute Geary's C (Measures spatial randomness)
+geary_test <- geary.test(homabay_shp$total_cases, listw = lw)
+print(geary_test)
+
+
+
+
+
+
+
 homabay_data <- st_join(homabay_shp, df_sf)
 
 
 df_sf <- df_sf %>% mutate(HIV_positive = ifelse(monthsantibodytest == "positive", 1, 0))
+
 
 colnames(homabay_shp)
 colnames(hiv_counts)
@@ -343,7 +442,7 @@ summary(spatial_model)
 
 ggplot() +
   geom_sf(data = homabay_shp, fill = "lightblue", color = "black") +
-  geom_sf(data = df_sf, aes(color = patient_density), size = 2) +
+  geom_sf(data = df_sf, aes(color = hiv_counts), size = 2) +
   scale_color_viridis_c(name = "Patient Density") +
   labs(title = "Study Area: Homa Bay County", x = "Longitude", y = "Latitude") +
   theme_minimal()

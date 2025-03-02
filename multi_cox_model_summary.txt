@@ -5,37 +5,23 @@ coxph(formula = form_multi_cox, data = df)
   n= 325, number of events= 33 
    (12 observations deleted due to missingness)
 
-                                        coef exp(coef) se(coef)
-ancattendanceyes                    -0.58076   0.55947  0.38231
-educationlevelnever attended school  2.63588  13.95561  0.77221
-educationlevelprimary               -0.26065   0.77055  0.87426
-educationlevelsecondary             -0.64271   0.52587  0.92161
-adherencegood                       -2.87417   0.05646  0.79842
-adherencepoor                        0.82064   2.27195  0.41192
-                                         z Pr(>|z|)    
-ancattendanceyes                    -1.519 0.128743    
-educationlevelnever attended school  3.413 0.000641 ***
-educationlevelprimary               -0.298 0.765601    
-educationlevelsecondary             -0.697 0.485565    
-adherencegood                       -3.600 0.000318 ***
-adherencepoor                        1.992 0.046348 *  
+                                        coef exp(coef) se(coef)      z Pr(>|z|)    
+ancattendanceyes                    -0.58076   0.55947  0.38231 -1.519 0.128743    
+educationlevelnever attended school  2.63588  13.95561  0.77221  3.413 0.000641 ***
+educationlevelprimary               -0.26065   0.77055  0.87426 -0.298 0.765601    
+educationlevelsecondary             -0.64271   0.52587  0.92161 -0.697 0.485565    
+adherencegood                       -2.87417   0.05646  0.79842 -3.600 0.000318 ***
+adherencepoor                        0.82064   2.27195  0.41192  1.992 0.046348 *  
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-                                    exp(coef) exp(-coef) lower .95
-ancattendanceyes                      0.55947    1.78739   0.26446
-educationlevelnever attended school  13.95561    0.07166   3.07216
-educationlevelprimary                 0.77055    1.29777   0.13888
-educationlevelsecondary               0.52587    1.90163   0.08638
-adherencegood                         0.05646   17.71078   0.01181
-adherencepoor                         2.27195    0.44015   1.01337
-                                    upper .95
-ancattendanceyes                        1.184
-educationlevelnever attended school    63.395
-educationlevelprimary                   4.275
-educationlevelsecondary                 3.201
-adherencegood                           0.270
-adherencepoor                           5.094
+                                    exp(coef) exp(-coef) lower .95 upper .95
+ancattendanceyes                      0.55947    1.78739   0.26446     1.184
+educationlevelnever attended school  13.95561    0.07166   3.07216    63.395
+educationlevelprimary                 0.77055    1.29777   0.13888     4.275
+educationlevelsecondary               0.52587    1.90163   0.08638     3.201
+adherencegood                         0.05646   17.71078   0.01181     0.270
+adherencepoor                         2.27195    0.44015   1.01337     5.094
 
 Concordance= 0.958  (se = 0.011 )
 Likelihood ratio test= 149.8  on 6 df,   p=<2e-16
