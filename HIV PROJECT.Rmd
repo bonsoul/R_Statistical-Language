@@ -7,19 +7,40 @@ output: html_document
 
 <!-- Loading libraries -->
 
-install.packages("corrplot") install.packages("randomForest") install.packages("lava") install.packages("caret") install.packages("survival") install.packages("survminer") install.packages("DCluster")
+install.packages("corrplot") 
+install.packages("randomForest") 
+install.packages("lava") 
+install.packages("caret") 
+install.packages("survival") 
+install.packages("survminer") 
+install.packages("DCluster")
+install.packages("RColorBrewer")
 
-library(survival) library(tidyverse) library(caret) library(randomForest) library(ggplot2) library(dplyr) library(corrplot) library(readxl) library(tidyr) library(survminer) library(sf) library(tmap)
+library(survival)
+library(tidyverse) 
+library(caret) 
+library(randomForest) 
+library(ggplot2) 
+library(dplyr) 
+library(corrplot) 
+library(readxl) 
+library(tidyr) 
+library(survminer) 
+library(sf) 
+library(tmap)
+library(RColorBrewer)
+library(knitr)
+library(mgcv) 
 
 <!-- Load the dataset -->
 
-df \<- read_excel("D:/Downloads/HIV - VARIABLES.xlsx")
+df <- read_excel("D:/Downloads/HIV - VARIABLES.xlsx")
 
 str(df)
 
 <!--Rename coordinate columns for clarity-->
 
-df \<- df %\>% rename(latitude = var52, longitude = var51)
+df <- df %>% rename(latitude = var52, longitude = var51)
 
 <!--Summary of the dataset to verify changes-->
 
@@ -27,112 +48,216 @@ summary(df)
 
 <!--Data Exploration-->
 
-duplicates \<- df[duplicated(df),]
+duplicates <- df[duplicated(df),]
 
 print(duplicates)
 
 <!--No duplicates-->
 
-missing_per_column \<- colSums(is.na(df)) total_missing \<- sum(missing_per_column) print(total_missing) print(missing_per_column)
+missing_per_column <- colSums(is.na(df)) 
+total_missing <- sum(missing_per_column) 
+print(total_missing) 
+print(missing_per_column)
 
-columns_with_missing \<- names(missing_per_column[missing_per_column \> 0]) print(columns_with_missing)
+columns_with_missing <- names(missing_per_column[missing_per_column > 0]) 
+print(columns_with_missing)
 
 <!--Compute summary statistics for numeric columns-->
 
-summary_stats \<- df %\>% select(where(is.numeric)) %\>% summarise(across(everything(), list( min = \~min(., na.rm = TRUE), Q1 = \~quantile(., 0.25, na.rm = TRUE), median = \~median(., na.rm = TRUE), mean = \~mean(., na.rm = TRUE), Q3 = \~quantile(., 0.75, na.rm = TRUE), max = \~max(., na.rm = TRUE), sd = \~sd(., na.rm = TRUE) )))
+summary_stats <- df %>% select(where(is.numeric)) %>% summarise(across(everything(), list( min = ~min(., na.rm = TRUE), Q1 = ~quantile(., 0.25, na.rm = TRUE), median = ~median(., na.rm = TRUE), mean = ~mean(., na.rm = TRUE), Q3 = ~quantile(., 0.75, na.rm = TRUE), max = ~max(., na.rm = TRUE), sd = ~sd(., na.rm = TRUE) )))
 
 summary(summary_stats)
 
 <!--Visualize distributions with histograms-->
 
-numeric_cols \<- df %\>% select(where(is.numeric)) %\>% colnames() numeric_cols \<- setdiff(numeric_cols, c("longitude", "latitude"))
+numeric_cols <- df %>% select(where(is.numeric)) %>% colnames() 
+numeric_cols <- setdiff(numeric_cols, c("longitude", "latitude"))
 
-for (col in numeric_cols) { p \<- ggplot(df, aes_string(x = col)) + geom_histogram(binwidth = 30, fill = "blue", alpha = 0.7) + ggtitle(paste("Histogram of", col)) + theme_minimal() print(p) }
+for (col in numeric_cols) { 
+  p <- ggplot(df, aes_string(x = col)) + 
+    geom_histogram(binwidth = 30, fill = "blue", alpha = 0.7) + 
+    ggtitle(paste("Histogram of", col)) + 
+    theme_minimal() 
+  print(p)  # Ensure print is on a new line
+}
+
 
 png('histogram.png') dev.off()
 
 <!--Boxplot-->
 
-for (col in numeric_cols) { p \<- ggplot(df, aes(y = .data[[col]])) + \# Fix aes_string() issue geom_boxplot(fill = "lightblue", na.rm = TRUE) + ggtitle(paste("Boxplot of", col)) + theme_minimal() print(p) }
+for (col in numeric_cols) { 
+  p <- ggplot(df, aes(y = .data[[col]])) +  
+    geom_boxplot(fill = "lightblue", na.rm = TRUE) + 
+    ggtitle(paste("Boxplot of", col)) + 
+    theme_minimal() 
+  
+  print(p)  # Ensure print is on a new line
+}
 
-df \<- df %\>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
 
-table(df\$monthsantibodytest)
+df <- df %>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
+
+table(df$monthsantibodytest)
 
 ```{=html}
 <!--Chi-square test used for comparisons
 -->
 ```
 
-cat_vars \<- names(df)[sapply(df, function(x) is.character(x) \| is.factor(x))] cat_vars \<- setdiff(cat_vars, "monthsantibodytest")
+cat_vars <- names(df)[sapply(df, function(x) is.character(x) | is.factor(x))] 
+cat_vars <- setdiff(cat_vars, "monthsantibodytest")
 
-chi_results \<- data.frame(Variable = character(), Chi_Square = numeric(), P_Value = numeric())
+chi_results <- data.frame(Variable = character(), Chi_Square = numeric(), P_Value = numeric())
 
-for (var in cat_vars) { tbl \<- table(df[[var]], df$monthsantibodytest)
+for (var in cat_vars) { tbl <- table(df[[var]], df$monthsantibodytest)
   test <- chisq.test(tbl)
   chi_results <- rbind(chi_results, data.frame(
     Variable = var,
-    Chi_Square = signif(test$statistic, 5), P_Value = signif(test\$p.value, 5) )) }
+    Chi_Square = signif(test$statistic, 5), P_Value = signif(test$p.value, 5) )) }
 
-chi_results \<- chi_results[order(chi_results\$P_Value), ]
+chi_results <- chi_results[order(chi_results$P_Value), ]
 
 print(chi_results)
 
 <!--Create survival object-->
 
-surv_obj \<- Surv(time = df$time, event = df$monthsantibodytest)
+surv_obj <- Surv(time = df$time, event = df$monthsantibodytest)
 
 <!--Fit Kaplan-Meier survival model-->
 
-km_fit \<- survfit(surv_obj \~ 1, data = df)
+km_fit <- survfit(surv_obj ~ 1, data = df)
 
 <!--Plot Kaplan-Meier curve-->
 
 ggsurvplot(km_fit, data = df, conf.int = TRUE, ggtheme = theme_minimal(), title = "Kaplan-Meier Survival Curve", xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
 
-df \<- na.omit(df)
+df <- na.omit(df)
 
-df$monthsantibodytest <- ifelse(df$monthsantibodytest \> 0, 1, 0)
+df$monthsantibodytest <- ifelse(df$monthsantibodytest > 0, 1, 0)
 
 <!--Logistic Regresson-->
 
-logit_model \<- glm(monthsantibodytest_binary \~ subcounty + maritalstatus + residence + employmentstatus + ancattendance + facilitylevelanc + hivstatusbeforepregnancy + syphillis + uti + educationlevel + sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner, data = df_clean, family = binomial) summary(logit_model)
+
+logit_model <- glm(
+  monthsantibodytest_binary ~ subcounty + maritalstatus + residence + 
+    employmentstatus + ancattendance + facilitylevelanc + 
+    hivstatusbeforepregnancy + syphillis + uti + educationlevel + 
+    sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner, 
+  data = df_clean, 
+  family = binomial
+)
+
+summary(logit_model)
+
 
 <!--Cox Proportional Regression-->
 
-surv_diff \<- survdiff(surv_obj \~ df\$monthsantibodytest, data = df) print(surv_diff)
+length(surv_obj)  # Should match the number of rows in df
+nrow(df)  # Should match length(surv_obj)
 
-cox_model \<- coxph(Surv(time, monthsantibodytest) \~ monthsantibodytest_binary \~ subcounty + maritalstatus + residence + employmentstatus + ancattendance + facilitylevelanc + hivstatusbeforepregnancy + syphillis + uti + educationlevel + sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner, data = df)
+
+df_clean <- df %>% drop_na(monthsantibodytest, time)
+
+surv_obj <- Surv(df_clean$time, df_clean$monthsantibodytest)
+
+surv_diff <- survdiff(surv_obj ~ monthsantibodytest, data = df_clean)
+
+print(surv_diff)
+
+
+cox_model <- coxph(Surv(time, monthsantibodytest) ~ 
+                     subcounty + maritalstatus + residence + 
+                     employmentstatus + ancattendance + 
+                     facilitylevelanc + hivstatusbeforepregnancy + 
+                     syphillis + uti + educationlevel + 
+                     sexofthebaby + whohivdiseasestage + 
+                     patnershivstatus + tmembraner, 
+                   data = df)
 
 summary(cox_model)
 
+
 <!--bivariate model-->
 
-predictors_logit \<- c("age", "weightkg", "maritalstatus", "residence", "employmentstatus", "hivstatusbeforepregnancy","ancattendance", "facilitylevelanc", "educationlevel", "adherence","cd4cellcountcellsmm3")
+predictors_logit <- c("age", "weightkg", "maritalstatus", "residence", "employmentstatus", "hivstatusbeforepregnancy","ancattendance", "facilitylevelanc", "educationlevel", "adherence","cd4cellcountcellsmm3")
 
-bivar_logit_results \<- lapply(predictors_logit, function(var) { form \<- as.formula(paste("monthsantibodytest \~", var)) mod \<- glm(form, data = df, family = binomial) s \<- summary(mod) coef_info \<- s\$coefficients[2, ] or_val \<- exp(coef_info[1]) ci \<- exp(confint(mod)[2, ]) data.frame(Variable = var, Estimate = coef_info[1], StdError = coef_info[2], Z_value = coef_info[3], P_value = coef_info[4], Odds_Ratio = or_val, CI_lower = ci[1], CI_upper = ci[2], row.names = NULL) })
+bivar_logit_results <- lapply(predictors_logit, function(var) { 
+  form <- as.formula(paste("monthsantibodytest ~", var))  
+  mod <- glm(form, data = df, family = binomial)  
+  s <- summary(mod)  
+  coef_info <- s$coefficients[2, ]  # Fixing "<-" operator issue
+  or_val <- exp(coef_info[1])  
+  ci <- exp(confint(mod)[2, ])  
+  
+  data.frame(
+    Variable = var, 
+    Estimate = coef_info[1], 
+    StdError = coef_info[2], 
+    Z_value = coef_info[3], 
+    P_value = coef_info[4], 
+    Odds_Ratio = or_val, 
+    CI_lower = ci[1], 
+    CI_upper = ci[2],
+    row.names = NULL
+  )  
+})
 
-bivar_logit_results \<- do.call(rbind, bivar_logit_results) print(bivar_logit_results)
+# Combine results into a single data frame
+bivar_logit_results_df <- do.call(rbind, bivar_logit_results)
 
-bivar_logit_results \<- as.data.frame(do.call(rbind, bivar_logit_results))
+# Print results
+print(bivar_logit_results_df)
 
-write.table(bivar_logit_results, "bivar_logit_results.txt", sep = "\t", row.names = TRUE, quote = FALSE)
 
-selected_cox \<- bivar_logit_results %\>% filter(P_value \< 0.05) %\>% pull(Variable)
 
-if(length(selected_cox) \> 0) {# Build multivariate Cox model using selected predictors form_multi_cox \<- as.formula(paste("Surv(time, monthsantibodytest) \~", paste(selected_cox, collapse = " + "))) multi_cox_model \<- coxph(form_multi_cox, data = df) print("Multivariate Cox Regression Model Summary:") print(summary(multi_cox_model)) } else { cat("No predictors reached p \< 0.05 in bivariate Cox regression. \nConsider using all candidate predictors.\n") \# Alternatively, force a multivariate model with all predictors: form_multi_cox \<- as.formula(paste("Surv(\_t, \_d) \~", paste(predictors_cox, collapse = " + "))) multi_cox_model \<- coxph(form_multi_cox, data = df) print("Multivariate Cox Regression Model Summary (using all predictors):") print(summary(multi_cox_model)) }
 
-sink("multi_cox_model_summary.txt") \# Redirect output to a file print("Multivariate Cox Regression Model Summary (using all predictors):") print(summary(multi_cox_model)) \# Print model summary sink() \# Stop redirecting output
+# Check column names to ensure P_value exists
+colnames(bivar_logit_results_df)
 
-# Confirmation message
+# Filter significant variables (P_value < 0.05)
+selected_cox <- bivar_logit_results_df %>%
+  filter(P_value < 0.05) %>%
+  pull(Variable)
 
-print("Cox model summary has been saved as 'multi_cox_model_summary.txt'.")
+# Print selected variables
+print(selected_cox)
+
+
+if(length(selected_cox) > 0) {
+  # Build multivariate Cox model using selected predictors
+  form_multi_cox <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(selected_cox, collapse = " + ")))
+  
+  multi_cox_model <- coxph(form_multi_cox, data = df)
+
+  print("Multivariate Cox Regression Model Summary:")
+  print(summary(multi_cox_model))
+  
+} else {
+  cat("No predictors reached p < 0.05 in bivariate Cox regression.\nConsider using all candidate predictors.\n")
+
+  # Alternatively, force a multivariate model with all predictors:
+  form_multi_cox <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(predictors_cox, collapse = " + ")))
+  
+  multi_cox_model <- coxph(form_multi_cox, data = df)
+
+  print("Multivariate Cox Regression Model Summary (using all predictors):")
+  print(summary(multi_cox_model))
+}
+
+
+
+
+sink("multi_cox_model_summary.txt")  # Redirect output to a file
+print("Multivariate Cox Regression Model Summary (using all predictors):")
+print(summary(multi_cox_model))  # Print model summary
+sink()  # Stop redirecting output
 
 <!--Geographical-->
 
 file.exists("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
 
-sub_county \<- st_read("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
+sub_county <- st_read("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
 
 print(sub_county)
 
@@ -140,94 +265,219 @@ ggplot(data = sub_county) + geom_sf(fill = "lightblue", color = "black", size = 
 
 colnames(df)
 
-df_sf \<- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
+df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
 
-homabay_shp \<- sub_county %\>% filter(county == "Homa Bay") homabay_shp
+<!-- Plotting Homa Bay-->
+
+homabay_shp <- sub_county %>% filter(county == "Homa Bay") 
+homabay_shp
 
 ggplot() + geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + ggtitle("Map of Homa Bay Sub-Counties") + theme_minimal()
 
-colnames(homabay_shp)
+<!-- Number of Cases-->
 
-install.packages("RColorBrewer")
-
-library(RColorBrewer)
-
-library(knitr)
-
-library(mgcv) colnames(homabay_shp) colnames(df)
-
-hiv_counts \<- df_sf %\>% group_by(subcounty) %\>% \# Group by sub-county summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
-
-patient_count \<- df_sf %\>% group_by(subcounty)
-
-hiv_counts %\>% arrange(desc(total_cases)) %\>% \# Sort by total_cases in descending order head(10) %\>% \# Get the top 10 sub-counties select(subcounty, total_cases) %\>% \# Select relevant columns kable()
-
-hiv_counts \<- st_drop_geometry(hiv_counts)
-
-colnames(hiv_counts)
-
-homabay_shp \<- homabay_shp %\>% st_join(hiv_counts, join = st_contains)
-
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
 
 colnames(homabay_shp)
+colnames(df)
 
 unique(homabay_shp$subcounty)
 unique(hiv_counts$subcounty)
 
-name_mapping \<- data.frame( hiv_counts_name = c("Homa Bay", "Kabondo Kasipul", "Karachauony", "Kasipul", "Mbita", "Ndhiwa", "Ragwe", "Suba"), homabay_shp_name = c("Homa Bay Town Sub County", "Kabondo Kasipul Sub County", "Karachuonyo Sub County", "Kasipul Sub County", "Mbita Sub County", "Ndhiwa Sub County", "Rangwe Sub County", "Suba Sub County") )
 
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
 
-homabay_shp %\>% select(subcounty, total_cases) %\>% st_drop_geometry() %\>% head(10) %\>% kable()
 
-ggplot(data = homabay_shp) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") + labs( title = "Geographical Distribution of HIV Cases in Homa Bay", subtitle = "Sub-county level analysis", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
+df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
+colnames(df_sf)
 
-hiv_counts \<- hiv_counts %\>% left_join(name_mapping, by = c("subcounty" = "hiv_counts_name")) %\>% mutate(subcounty = homabay_shp_name) %\>% select(-homabay_shp_name)
 
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
+status_counts <- df %>%
+  group_by(subcounty) %>%
+  summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
+  
+status_counts %>%
+  kable()
+  
+  
+  
+  
+  
+homabay_shp <- homabay_shp %>%
+  left_join(status_counts, by = "subcounty")
+  
+  colnames(homabay_shp)
+  
+  homabay_shp %>%
+  select(subcounty, total_cases.x) %>%
+  st_drop_geometry() %>%
+  head(10) %>%
+  kable()
+  
+  
+ggplot(data = homabay_shp) +
+  geom_sf(aes(fill = total_cases.x), color = "black", size = 0.3) +
+  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
+  labs(
+    title = "Geographical Distribution of HIV Cases in Homa Bay",
+    subtitle = "Sub-county level analysis",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
 
-homabay_shp %\>% select(subcounty, total_cases) %\>% st_drop_geometry() %\>% head(10) %\>% kable()
+  
+  
 
-homabay_shp \<- homabay_shp %\>% mutate(subcounty = tolower(trimws(subcounty)))
 
-hiv_counts \<- hiv_counts %\>% mutate(subcounty = tolower(trimws(subcounty)))
 
-homabay_shp %\>% select(subcounty, total_cases) %\>% st_drop_geometry() %\>% head(10) %\>% kable()
 
-ggplot(data = homabay_shp) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") + geom_sf_text(aes(label = subcounty), size = 3, color = "black", fontface = "bold", check_overlap = TRUE) + \# Add subcounty names labs( title = "Geographical Distribution of HIV Cases in Homa Bay", subtitle = "Sub-county level analysis", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
 
-ggplot(data = homabay_shp) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + scale_fill_viridis_c(option = "magma", name = "Total HIV Cases", na.value = "grey80") + geom_sf(data = homabay_shp, color = "blue", size = 2, alpha = 0.7) + \# Adding patients geom_sf_text(aes(label = subcounty), size = 3, color = "black", fontface = "bold", check_overlap = TRUE) + labs( title = "Geographical Distribution of HIV Cases in Homa Bay", subtitle = "Sub-county level analysis", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
 
-ggplot(data = homabay_shp) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") + labs( title = "Geographical Distribution of HIV Cases in Homa Bay", subtitle = "Sub-county level analysis", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
 
-colnames(hiv_counts)
 
-ggplot(data = hiv_counts) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + \# Fill by total HIV cases scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") + \# Color scale labs( title = "Geographical Distribution of HIV Cases in Sub-Counties", subtitle = "Visualization of HIV patient distribution", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
 
-# Merge HIV counts with shapefile data
 
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
 
-# Create the map
 
-ggplot(data = homabay_shp) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + \# Fill by number of cases scale_fill_gradientn( colors = brewer.pal(5, "Blues"), \# Color gradient from light to dark blue name = "Number of patients" ) + labs( title = "HIV Patient Distribution in Homa Bay County", subtitle = "Sub-county level analysis", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
 
-ggplot(data = homabay_shp) + geom_sf(aes(fill = total_cases), color = "black", size = 0.3) + scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Number of patients") + \# Continuous color scale labs( title = "HIV Patient Distribution in Homa Bay County", subtitle = "Sub-county level analysis", x = "Longitude", y = "Latitude" ) + theme_minimal() + theme(legend.position = "right")
 
-hiv_counts \<- df_sf %\>% group_by(subcounty) %\>% \# Group by sub-county summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
 
-# Aggregate HIV cases by sub-county
+  
 
-hiv_counts \<- df_sf %\>% group_by(subcounty) %\>% summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
+df_sf <- df_sf %>%
+  left_join(status_counts, by = "subcounty") 
+  
+colnames(df_sf)  # Should now include 'total_cases'
 
-# Drop geometry before joining
+  
+ggplot(data = df_sf) +
+  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
+  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
+  labs(
+    title = "Geographical Distribution of HIV Cases in Sub-Counties",
+    subtitle = "Visualization of HIV patient distribution",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
 
-hiv_counts \<- st_drop_geometry(hiv_counts)
+  
 
-# Join HIV data to the spatial object
+<!--patient-->
 
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
+
+patient_count <- df_sf %>%
+  group_by(subcounty) %>%
+  summarize(Number_Patients = n())
+
+
+
+
+colnames(homabay_shp)
+colnames(df)
+
+unique(homabay_shp$subcounty)
+unique(hiv_counts$subcounty)
+
+
+
+
+df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
+colnames(df_sf)
+  
+  
+  
+  
+  
+homabay_shp <- homabay_shp %>%
+  left_join(patient_count, by = "subcounty")
+  
+  colnames(homabay_shp)
+  
+  homabay_shp %>%
+  select(subcounty, Number_Patients) %>%
+  st_drop_geometry() %>%
+  head(10) %>%
+  kable()
+  
+  
+name_mapping <- data.frame(
+  patient_counts_name = c("Homa Bay", "Kabondo Kasipul", "Karachauony", 
+                      "Kasipul", "Mbita", "Ndhiwa", "Ragwe", "Suba"),
+  homabay_shp_name = c("Homa Bay Town Sub County", "Kabondo Kasipul Sub County",
+                       "Karachuonyo Sub County", "Kasipul Sub County", 
+                       "Mbita Sub County", "Ndhiwa Sub County", 
+                       "Rangwe Sub County", "Suba Sub County")
+)
+
+patient_cases <- patient_count %>%
+  left_join(name_mapping, by = c("subcounty" = "patient_counts_name")) %>%
+  mutate(subcounty = homabay_shp_name) %>%
+  select(-homabay_shp_name)
+
+homabay_shp %>%
+  select(subcounty, Number_Patients) %>%
+  st_drop_geometry() %>%
+  head(10) %>%
+  kable()
+
+
+
+  
+ggplot(data = homabay_shp) +
+  geom_sf(aes(fill = Number_Patients), color = "black", size = 0.3) +
+  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
+  labs(
+    title = "Geographical Distribution of HIV Cases in Homa Bay",
+    subtitle = "Sub-county level analysis",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+df_sf <- df_sf %>%
+  left_join(status_counts, by = "subcounty") 
+  
+colnames(df_sf)  # Should now include 'total_cases'
+
+  
+ggplot(data = df_sf) +
+  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
+  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
+  labs(
+    title = "Geographical Distribution of HIV Cases in Sub-Counties",
+    subtitle = "Visualization of HIV patient distribution",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+
+
+
+
 
 install.packages(c("sf", "spdep", "spatialreg", "scanstatistics", "R2BayesX"))
 
