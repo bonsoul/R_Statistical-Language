@@ -87,7 +87,7 @@ png('histogram.png') dev.off()
 <!--Boxplot-->
 
 for (col in numeric_cols) { 
-  p <- ggplot(df, aes(y = .data[[col]])) +  
+p <- ggplot(df, aes(y = .data[[col]])) +  
     geom_boxplot(fill = "lightblue", na.rm = TRUE) + 
     ggtitle(paste("Boxplot of", col)) + 
     theme_minimal() 
@@ -134,7 +134,7 @@ ggsurvplot(km_fit, data = df, conf.int = TRUE, ggtheme = theme_minimal(), title 
 
 df <- na.omit(df)
 
-df$monthsantibodytest <- ifelse(df$monthsantibodytest > 0, 1, 0)
+
 
 <!--Logistic Regresson-->
 
@@ -248,11 +248,6 @@ if(length(selected_cox) > 0) {
 
 
 
-sink("multi_cox_model_summary.txt")  # Redirect output to a file
-print("Multivariate Cox Regression Model Summary (using all predictors):")
-print(summary(multi_cox_model))  # Print model summary
-sink()  # Stop redirecting output
-
 <!--Geographical-->
 
 file.exists("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
@@ -277,13 +272,17 @@ ggplot() + geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + gg
 <!-- Number of Cases-->
 
 
-colnames(homabay_shp)
-colnames(df)
 
+
+# Remove "Sub County" from homabay_shp$subcounty
+homabay_shp$subcounty <- gsub(" Sub County", "", homabay_shp$subcounty)
+
+# Remove "Sub County" from hiv_counts$subcounty
+hiv_counts$subcounty <- gsub(" Sub County", "", hiv_counts$subcounty)
+
+# Check unique values after modification
 unique(homabay_shp$subcounty)
 unique(hiv_counts$subcounty)
-
-
 
 
 df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
@@ -307,14 +306,14 @@ homabay_shp <- homabay_shp %>%
   colnames(homabay_shp)
   
   homabay_shp %>%
-  select(subcounty, total_cases.x) %>%
+  select(subcounty, total_cases) %>%
   st_drop_geometry() %>%
   head(10) %>%
   kable()
   
   
 ggplot(data = homabay_shp) +
-  geom_sf(aes(fill = total_cases.x), color = "black", size = 0.3) +
+  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
   scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
   labs(
     title = "Geographical Distribution of HIV Cases in Homa Bay",
@@ -424,7 +423,6 @@ homabay_shp %>%
 
 
 
-  
 ggplot(data = homabay_shp) +
   geom_sf(aes(fill = Number_Patients), color = "black", size = 0.3) +
   scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
