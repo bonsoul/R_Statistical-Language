@@ -132,7 +132,9 @@ km_fit <- survfit(surv_obj ~ 1, data = df)
 
 ggsurvplot(km_fit, data = df, conf.int = TRUE, ggtheme = theme_minimal(), title = "Kaplan-Meier Survival Curve", xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
 
-df <- na.omit(df)
+
+
+#df <- na.omit(df)
 
 
 
@@ -260,7 +262,7 @@ ggplot(data = sub_county) + geom_sf(fill = "lightblue", color = "black", size = 
 
 colnames(df)
 
-df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
+#df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
 
 <!-- Plotting Homa Bay-->
 
@@ -271,50 +273,42 @@ ggplot() + geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + gg
 
 <!-- Number of Cases-->
 
+colnames(homabay_shp)
+colnames(status_counts)
 
 
-
-# Remove "Sub County" from homabay_shp$subcounty
-homabay_shp$subcounty <- gsub(" Sub County", "", homabay_shp$subcounty)
-
-# Remove "Sub County" from hiv_counts$subcounty
-hiv_counts$subcounty <- gsub(" Sub County", "", hiv_counts$subcounty)
-
-# Check unique values after modification
 unique(homabay_shp$subcounty)
-unique(hiv_counts$subcounty)
+unique(status_counts$subcounty)
 
 
-df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
-colnames(df_sf)
+status_counts <- status_counts %>%
+  mutate(subcounty = case_when(
+    subcounty == "Homa Bay" ~ "Homa Bay Town",
+    subcounty == "Karachauony" ~ "Karachuonyo",
+    subcounty == "Ragwe" ~ "Rangwe",
+    TRUE ~ subcounty # Keep other names unchanged
+  ))
 
 
-status_counts <- df %>%
-  group_by(subcounty) %>%
-  summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
-  
-status_counts %>%
-  kable()
-  
-  
-  
-  
-  
+setdiff(unique(homabay_shp$subcounty), unique(status_counts$subcounty))
+setdiff(unique(status_counts$subcounty), unique(homabay_shp$subcounty))
+
+
 homabay_shp <- homabay_shp %>%
   left_join(status_counts, by = "subcounty")
-  
-  colnames(homabay_shp)
-  
-  homabay_shp %>%
+
+# Verify after joining
+homabay_shp %>%
   select(subcounty, total_cases) %>%
   st_drop_geometry() %>%
   head(10) %>%
-  kable()
-  
-  
+  kable(caption = "Total HIV Cases per Subcounty in Homa Bay")
+
+
 ggplot(data = homabay_shp) +
-  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
-  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
+  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +  # Map outline
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Total HIV Cases", na.value = "grey80") +  # Blue gradient
+  geom_sf_text(aes(label = subcounty), size = 3, color = "white") +  # Add subcounty labels
   labs(
     title = "Geographical Distribution of HIV Cases in Homa Bay",
     subtitle = "Sub-county level analysis",
@@ -322,44 +316,13 @@ ggplot(data = homabay_shp) +
     y = "Latitude"
   ) +
   theme_minimal() +
-  theme(legend.position = "right")
-
-  
-  
-
-
-
+  theme(
+    legend.position = "right",
+    panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
+    panel.grid = element_blank()  # Remove grid for clarity
+  )
 
 
-
-
-
-
-
-
-
-
-
-
-  
-
-df_sf <- df_sf %>%
-  left_join(status_counts, by = "subcounty") 
-  
-colnames(df_sf)  # Should now include 'total_cases'
-
-  
-ggplot(data = df_sf) +
-  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
-  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
-  labs(
-    title = "Geographical Distribution of HIV Cases in Sub-Counties",
-    subtitle = "Visualization of HIV patient distribution",
-    x = "Longitude",
-    y = "Latitude"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
 
   
 
@@ -370,112 +333,43 @@ patient_count <- df_sf %>%
   group_by(subcounty) %>%
   summarize(Number_Patients = n())
 
-
-
-
-colnames(homabay_shp)
-colnames(df)
+colnames(patient_count)
 
 unique(homabay_shp$subcounty)
-unique(hiv_counts$subcounty)
+unique(patient_count$subcounty)
+
+patient_count <- patient_count %>%
+  mutate(subcounty = case_when(
+    subcounty == "Homa Bay" ~ "Homa Bay Town",
+    subcounty == "Karachauony" ~ "Karachuonyo",
+    subcounty == "Ragwe" ~ "Rangwe",
+    TRUE ~ subcounty # Keep other names unchanged
+  ))
 
 
+setdiff(unique(homabay_shp$subcounty), unique(patient_count$subcounty))
+setdiff(unique(patient_count$subcounty), unique(homabay_shp$subcounty))
 
-
-df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
-colnames(df_sf)
-  
-  
-  
-  
-  
-homabay_shp <- homabay_shp %>%
-  left_join(patient_count, by = "subcounty")
-  
-  colnames(homabay_shp)
-  
-  homabay_shp %>%
-  select(subcounty, Number_Patients) %>%
-  st_drop_geometry() %>%
-  head(10) %>%
-  kable()
-  
-  
-name_mapping <- data.frame(
-  patient_counts_name = c("Homa Bay", "Kabondo Kasipul", "Karachauony", 
-                      "Kasipul", "Mbita", "Ndhiwa", "Ragwe", "Suba"),
-  homabay_shp_name = c("Homa Bay Town Sub County", "Kabondo Kasipul Sub County",
-                       "Karachuonyo Sub County", "Kasipul Sub County", 
-                       "Mbita Sub County", "Ndhiwa Sub County", 
-                       "Rangwe Sub County", "Suba Sub County")
-)
-
-patient_cases <- patient_count %>%
-  left_join(name_mapping, by = c("subcounty" = "patient_counts_name")) %>%
-  mutate(subcounty = homabay_shp_name) %>%
-  select(-homabay_shp_name)
-
-homabay_shp %>%
-  select(subcounty, Number_Patients) %>%
-  st_drop_geometry() %>%
-  head(10) %>%
-  kable()
-
-
+homabay_shp <- st_join(homabay_shp, patient_count)
 
 ggplot(data = homabay_shp) +
-  geom_sf(aes(fill = Number_Patients), color = "black", size = 0.3) +
-  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
+  geom_sf(aes(fill = Number_Patients), color = "black", size = 0.3) +  # Map outline
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Number of Patients", na.value = "grey80") +  # Blue gradient
+  geom_sf_text(aes(label = subcounty.x), size = 3, color = "white") +  # Add subcounty labels
   labs(
-    title = "Geographical Distribution of HIV Cases in Homa Bay",
+    title = "Geographical Distribution of Patients in Homa Bay County",
     subtitle = "Sub-county level analysis",
     x = "Longitude",
     y = "Latitude"
   ) +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(
+    legend.position = "right",
+    panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
+    panel.grid = element_blank()  # Remove grid for clarity
+  )
 
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-df_sf <- df_sf %>%
-  left_join(status_counts, by = "subcounty") 
-  
-colnames(df_sf)  # Should now include 'total_cases'
-
-  
-ggplot(data = df_sf) +
-  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
-  scale_fill_viridis_c(option = "plasma", name = "Total HIV Cases", na.value = "grey80") +
-  labs(
-    title = "Geographical Distribution of HIV Cases in Sub-Counties",
-    subtitle = "Visualization of HIV patient distribution",
-    x = "Longitude",
-    y = "Latitude"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-
-
-
-
-
+<!--Bayessian Modelling-->
 
 install.packages(c("sf", "spdep", "spatialreg", "scanstatistics", "R2BayesX"))
 
