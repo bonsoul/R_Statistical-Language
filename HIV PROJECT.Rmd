@@ -15,6 +15,14 @@ install.packages("survival")
 install.packages("survminer") 
 install.packages("DCluster")
 install.packages("RColorBrewer")
+install.packages("gridExtra")  # Install the package (only needed once)
+install.packages("flextable")
+install.packages("officer")
+
+
+
+library(gridExtra)              # Load the package
+library(grid) 
 
 library(survival)
 library(tidyverse) 
@@ -30,7 +38,9 @@ library(sf)
 library(tmap)
 library(RColorBrewer)
 library(knitr)
-library(mgcv) 
+library(mgcv)
+library(knitr)
+library(kableExtra)
 
 <!-- Load the dataset -->
 
@@ -96,9 +106,9 @@ p <- ggplot(df, aes(y = .data[[col]])) +
 }
 
 
-df <- df %>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
+df1 <- df %>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
 
-table(df$monthsantibodytest)
+table(df1$monthsantibodytest)
 
 ```{=html}
 <!--Chi-square test used for comparisons
@@ -120,6 +130,51 @@ chi_results <- chi_results[order(chi_results$P_Value), ]
 
 print(chi_results)
 
+
+
+html_output <- kable(chi_results, format = "html") %>%
+  kable_styling(full_width = TRUE)
+
+save_kable(html_output, file = "chi_results.html")
+
+file_path <- "chi_results.html"
+browseURL(file_path)
+
+file_path <- "chi_results.png"
+browseURL(file_path)
+
+file_path <- "chi_results.docx"
+browseURL(file_path)
+
+
+
+# Print with kable styling
+kable(chi_results, format = "html", digits = 4) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+  
+
+# Generate Harvard-style table with full preview
+kable(chi_results, format = "html", digits = 4, caption = "Table 1: Chi-Square Test Results") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust P-value column width
+  column_spec(3, width = "5cm") %>% # Adjust Chi-Square column width
+  footnote(general = "Source: Computed results based on statistical analysis.")  # Add a Harvard-style citation
+
+library(flextable)
+library(officer)
+
+# Convert to a Harvard-style Word table
+doc <- read_docx() %>% 
+  body_add_flextable(flextable(chi_results) %>%
+    set_table_properties(width = 1, layout = "autofit"))
+
+# Save as Word
+print(doc, target = "chi_results_harvard.docx")
+browseURL("chi_results_harvard.docx")
+
+
+
 <!--Create survival object-->
 
 surv_obj <- Surv(time = df$time, event = df$monthsantibodytest)
@@ -140,17 +195,32 @@ ggsurvplot(km_fit, data = df, conf.int = TRUE, ggtheme = theme_minimal(), title 
 
 <!--Logistic Regresson-->
 
-
 logit_model <- glm(
-  monthsantibodytest_binary ~ subcounty + maritalstatus + residence + 
+  monthsantibodytest ~ subcounty + maritalstatus + residence + 
     employmentstatus + ancattendance + facilitylevelanc + 
     hivstatusbeforepregnancy + syphillis + uti + educationlevel + 
     sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner, 
-  data = df_clean, 
+  data = df, 
   family = binomial
 )
 
 summary(logit_model)
+
+
+# Generate Harvard-style table for logistic regression model summary
+logit_summary <- summary(logit_model)$coefficients
+logit_summary_df <- as.data.frame(logit_summary)
+colnames(logit_summary_df) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+
+# Display table with kable
+kable(logit_summary_df, format = "html", digits = 4, caption = "Table 1: Logistic Regression Model Summary") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust Std. Error column width
+  column_spec(3, width = "5cm") %>% # Adjust z value column width
+  column_spec(4, width = "5cm") %>% # Adjust P-value column width
+  footnote(general = "Source: Computed results based on logistic regression analysis.")  # Add a Harvard-style citation
+
 
 
 <!--Cox Proportional Regression-->
@@ -178,6 +248,25 @@ cox_model <- coxph(Surv(time, monthsantibodytest) ~
                    data = df)
 
 summary(cox_model)
+
+# Generate Harvard-style table for Cox model summary
+cox_summary <- summary(cox_model)$coefficients
+
+# Format the Exp(Coef) column to 4 significant figures
+cox_summary_df$Exp.Coef <- format(cox_summary_df$`Exp(Coef)`, digits = 4)
+cox_summary_df <- as.data.frame(cox_summary)
+colnames(cox_summary_df) <- c("Coef", "Exp(Coef)", "Se(Coef)", "z value", "Pr(>|z|)")
+
+# Display table with kable
+kable(cox_summary_df, format = "html", digits = 4, caption = "Table 1: Cox Proportional Hazards Model Summary") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust Exp(Coef) column width
+  column_spec(3, width = "5cm") %>% # Adjust Se(Coef) column width
+  column_spec(4, width = "5cm") %>% # Adjust z value column width
+  column_spec(5, width = "5cm") %>% # Adjust P-value column width
+  footnote(general = "Source: Computed results based on Cox proportional hazards analysis.")  # Add a Harvard-style citation
+
 
 
 <!--bivariate model-->
@@ -211,7 +300,18 @@ bivar_logit_results_df <- do.call(rbind, bivar_logit_results)
 # Print results
 print(bivar_logit_results_df)
 
-
+# Display the table with kable styling
+kable(bivar_logit_results_df, format = "html", digits = 4, caption = "Table 1: Logistic Regression Summary") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make the first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust Estimate column width
+  column_spec(3, width = "5cm") %>% # Adjust StdError column width
+  column_spec(4, width = "5cm") %>% # Adjust Z_value column width
+  column_spec(5, width = "5cm") %>% # Adjust P-value column width
+  column_spec(6, width = "5cm") %>% # Adjust Odds_Ratio column width
+  column_spec(7, width = "5cm") %>% # Adjust CI_lower column width
+  column_spec(8, width = "5cm") %>% # Adjust CI_upper column width
+  footnote(general = "Source: Computed results based on logistic regression analysis.")
 
 
 # Check column names to ensure P_value exists
@@ -247,6 +347,30 @@ if(length(selected_cox) > 0) {
   print(summary(multi_cox_model))
 }
 
+# Prepare the summary of the Cox model
+cox_summary <- summary(cox_model)$coefficients
+cox_summary_df <- as.data.frame(cox_summary)
+
+# Format the Exp(Coef) and lower/upper 95% CI columns to 4 significant figures
+cox_summary_df$`exp(coef)` <- format(cox_summary_df$`exp(coef)`, digits = 4)
+cox_summary_df$`lower .95` <- format(cox_summary_df$`lower .95`, digits = 4)
+cox_summary_df$`upper .95` <- format(cox_summary_df$`upper .95`, digits = 4)
+
+# Rename columns for clarity (there are only 7 columns in the original summary)
+colnames(cox_summary_df) <- c("Coef", "Exp(Coef)", "Se(Coef)", "z value", "Pr(>|z|)", "Lower 95%", "Upper 95%")
+
+# Display the table with kable
+kable(cox_summary_df, format = "html", digits = 4, caption = "Table 1: Multivariate Cox Regression Model Summary") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust Exp(Coef) column width
+  column_spec(3, width = "5cm") %>% # Adjust Se(Coef) column width
+  column_spec(4, width = "5cm") %>% # Adjust z value column width
+  column_spec(5, width = "5cm") %>% # Adjust P-value column width
+  column_spec(6, width = "5cm") %>% # Adjust Exp(-Coef) column width
+  column_spec(7, width = "5cm") %>% # Adjust Lower 95% column width
+  column_spec(8, width = "5cm") %>% # Adjust Upper 95% column width
+  footnote(general = "Source: Computed results based on multivariate Cox regression analysis.")  # Add a Harvard-style citation
 
 
 
@@ -329,7 +453,7 @@ ggplot(data = homabay_shp) +
 <!--patient-->
 
 
-patient_count <- df_sf %>%
+patient_count <- df %>%
   group_by(subcounty) %>%
   summarize(Number_Patients = n())
 
@@ -362,7 +486,7 @@ ggplot(data = homabay_shp) +
     x = "Longitude",
     y = "Latitude"
   ) +
-  theme_minimal() +
+  hhhjyhjyhyjmtheme_minimal() +,
   theme(
     legend.position = "right",
     panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
@@ -370,96 +494,4 @@ ggplot(data = homabay_shp) +
   )
 
 <!--Bayessian Modelling-->
-
-install.packages(c("sf", "spdep", "spatialreg", "scanstatistics", "R2BayesX"))
-
-library(sf) library(spdep) library(spatialreg) library(scanstatistics) library(R2BayesX)
-
-hiv_counts \<- df_sf %\>% group_by(subcounty) %\>% \# Group by sub-county summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
-
-# Convert df_sf to an sf object (if not already)
-
-df_sf \<- st_as_sf(df_sf)
-
-# Extract longitude and latitude (if missing)
-
-df_sf \<- df_sf %\>% mutate(longitude = st_coordinates(.)[,1], latitude = st_coordinates(.)[,2])
-
-# Aggregate HIV cases by sub-county
-
-hiv_counts \<- df_sf %\>% group_by(subcounty) %\>% summarize(total_cases = sum(monthsantibodytest, na.rm = TRUE))
-
-# Drop geometry for merging
-
-hiv_counts \<- st_drop_geometry(hiv_counts)
-
-# Merge with spatial data
-
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
-
-# Create spatial neighbors
-
-nb \<- poly2nb(homabay_shp) \# Queen contiguity neighbors lw \<- nb2listw(nb, style = "W") \# Spatial weights matrix
-
-sum(is.na(homabay_shp\$total_cases)) \# Should return 0
-
-summary(nb) \# Use KNN for neighbors (ensuring all regions have at least 1 neighbor) coords \<- st_centroid(st_geometry(homabay_shp)) nb \<- knn2nb(knearneigh(coords, k = 2)) \# Ensure each region has at least 2 neighbors lw \<- nb2listw(nb, style = "W")
-
-# Compute Moran's I (Global Spatial Autocorrelation)
-
-# Replace NA values with 0
-
-homabay_shp$total_cases[is.na(homabay_shp$total_cases)] \<- 0
-
-# If all values are the same, add a small constant
-
-if (length(unique(homabay_shp$total_cases)) == 1) {
-  homabay_shp$total_cases \<- homabay_shp\$total_cases + 0.001 }
-
-# Get centroid coordinates
-
-coords \<- st_centroid(st_geometry(homabay_shp))
-
-# Create KNN-based neighbors (ensure every region has at least 2 neighbors)
-
-nb \<- knn2nb(knearneigh(coords, k = 2))
-
-# Create spatial weights matrix
-
-lw \<- nb2listw(nb, style = "W")
-
-# Moran's I test
-
-moran_test \<- moran.test(homabay_shp\$total_cases, listw = lw) print(moran_test)
-
-# Geary's C test
-
-geary_test \<- geary.test(homabay_shp\$total_cases, listw = lw) print(geary_test)
-
-# Replace NA in total_cases with 0 (assume no reported cases)
-
-homabay_shp$total_cases[is.na(homabay_shp$total_cases)] \<- 0
-
-moran_test \<- moran.test(homabay_shp\$total_cases, listw = lw) print(moran_test)
-
-moran_test \<- moran.test(homabay_shp\$total_cases, listw = lw) print(moran_test)
-
-# Compute Geary's C (Measures spatial randomness)
-
-geary_test \<- geary.test(homabay_shp\$total_cases, listw = lw) print(geary_test)
-
-homabay_data \<- st_join(homabay_shp, df_sf)
-
-df_sf \<- df_sf %\>% mutate(HIV_positive = ifelse(monthsantibodytest == "positive", 1, 0))
-
-colnames(homabay_shp) colnames(hiv_counts)
-
-hiv_counts \<- df_sf %\>% group_by(subcounty) %\>% summarize(total_cases = sum(HIV_positive, na.rm = TRUE))
-
-hiv_counts \<- st_drop_geometry(hiv_counts)
-
-homabay_shp \<- homabay_shp %\>% left_join(hiv_counts, by = "subcounty")
-
-spatial_model \<- inla(monthsantibodytest \~ age + weightkg + f(longitude, model = "besag", graph = nb), data = df, family = "binomial") summary(spatial_model)
-
-ggplot() + geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + geom_sf(data = df_sf, aes(color = hiv_counts), size = 2) + scale_color_viridis_c(name = "Patient Density") + labs(title = "Study Area: Homa Bay County", x = "Longitude", y = "Latitude") + theme_minimal()
+R Studio\R_Statistical-Language
