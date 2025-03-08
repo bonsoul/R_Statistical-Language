@@ -168,3 +168,101 @@ kable(cholera_case_subcounty, caption = "Cholera Cases per Sub County") %>%
 
 
   
+
+
+# Function to plot cholera cases for selected county
+plotCholeraMapBySubCounty <- function(selected_county, dataset, shapefile_path) {
+  
+  # Read the shapefile for sub-counties
+  subcounty_map <- st_read(sub_county)
+  
+  # Convert columns to character and trim whitespace
+  subcounty_map <- subcounty_map %>%
+    mutate(SUB_COUNTY = trimws(as.character(SUB_COUNTY)),
+           COUNTY = trimws(as.character(COUNTY)))
+  
+  dataset <- dataset %>%
+    mutate(Sub_County = trimws(as.character(Sub_County)),
+           County = trimws(as.character(County)))
+  
+  # Check for unmatched sub-county names
+  unmatched_subcounties <- setdiff(unique(dataset$Sub_County), unique(subcounty_map$SUB_COUNTY))
+  
+  if (length(unmatched_subcounties) > 0) {
+    print("Unmatched Sub-Counties:")
+    print(unmatched_subcounties)
+  }
+  
+  # Filter dataset for the selected county
+  cholera_cases_by_subcounty <- dataset %>%
+    filter(County == selected_county) %>%
+    group_by(Sub_County) %>%
+    summarise(Cholera_Cases = n(), .groups = "drop")
+  
+  # Perform the left join
+  subcounty_map <- left_join(subcounty_map, cholera_cases_by_subcounty, by = c("SUB_COUNTY" = "Sub_County"))
+  
+  # Replace NA cases with 0 (areas without cases)
+  subcounty_map$Cholera_Cases[is.na(subcounty_map$Cholera_Cases)] <- 0
+  
+  # Define bins for color classification
+  bins <- c(0, 10, 50, 100, 200, 500, 1000, max(subcounty_map$Cholera_Cases, na.rm = TRUE))
+  
+  # Define color palette
+  pal <- colorBin("YlOrRd", domain = subcounty_map$Cholera_Cases, bins = bins)
+  
+  # Define labels for hover text
+  labels <- sprintf(
+    "<strong>%s</strong><br/>Cholera Cases: %g",
+    subcounty_map$SUB_COUNTY, subcounty_map$Cholera_Cases
+  ) %>% lapply(htmltools::HTML)
+  
+  # Create the leaflet map
+  leaflet(data = subcounty_map) %>%
+    setView(lat = -0.0, lng = 36.681660, zoom = 7) %>%
+    addPolygons(
+      fillColor = ~pal(Cholera_Cases),
+      weight = 2,
+      opacity = 1,
+      color = "white",
+      dashArray = "3",
+      fillOpacity = 0.7,
+      highlight = highlightOptions(
+        weight = 3,
+        color = "#666",
+        dashArray = "",
+        fillOpacity = 0.8,
+        bringToFront = TRUE
+      ),
+      label = labels,
+      labelOptions = labelOptions(
+        style = list("font-weight" = "normal", padding = "3px 8px"),
+        textsize = "15px",
+        direction = "auto"
+      )
+    ) %>%
+    addLegend(
+      pal = pal, values = ~Cholera_Cases, opacity = 0.7, title = "Cholera Cases",
+      position = "bottomleft"
+    )
+}
+
+# Create a Shiny app for interactive county selection
+shinyApp(
+  ui = fluidPage(
+    titlePanel("Cholera Cases by Sub-County"),
+    sidebarLayout(
+      sidebarPanel(
+        selectInput("selected_county", "Select County:", choices = unique(data$County))
+      ),
+      mainPanel(
+        leafletOutput("cholera_map")
+      )
+    )
+  ),
+  server = function(input, output) {
+    output$cholera_map <- renderLeaflet({
+      plotCholeraMapBySubCounty(input$selected_county, data, "D:/Downloads/extracted/SubCounty.shp")
+    })
+  }
+)
