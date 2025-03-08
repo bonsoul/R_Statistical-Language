@@ -149,16 +149,22 @@ data$`Sub County` <- as.character(data$`Sub County`)
 cholera_case_subcounty <- data %>% 
   group_by(County,Sub County) %>%
   summarise(Cholera_Case = n(), .groups = "drop")
+
+data <- data %>%
+  rename(Sub_County = `Sub County`)
+
+cholera_case_subcounty <- data %>% 
+  group_by(County, Sub_County)
+
   
-  cholera_case_county <- data %>%
-  group_by(County) %>%
+cholera_case_subcounty <- data %>%
+  group_by(County, Sub_County) %>%
   summarise(Cholera_Cases = n()) %>%
-  arrange(desc(Cholera_Cases)) # descending order
+  arrange(desc(Cholera_Cases)) # Sorting in descending order
 
-kable(cholera_case_county, caption = "Cholera Cases per County")
-
-kable(cholera_case_county, caption = "Cholera Cases Per County") %>%
-  kable_styling(bootstrap_options = c("striped", "hover","condensed","responsive"), full_width = FALSE)
+# Display as a table
+kable(cholera_case_subcounty, caption = "Cholera Cases per Sub County") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
 
 
   
