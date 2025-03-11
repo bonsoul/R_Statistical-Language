@@ -21,9 +21,8 @@ install.packages("officer")
 
 
 
-library(gridExtra)              # Load the package
+library(gridExtra)             
 library(grid) 
-
 library(survival)
 library(tidyverse) 
 library(caret) 
@@ -41,6 +40,7 @@ library(knitr)
 library(mgcv)
 library(knitr)
 library(kableExtra)
+library(broom)
 
 <!-- Load the dataset -->
 
@@ -74,7 +74,21 @@ print(columns_with_missing)
 
 <!--Compute summary statistics for numeric columns-->
 
-summary_stats <- df %>% select(where(is.numeric)) %>% summarise(across(everything(), list( min = ~min(., na.rm = TRUE), Q1 = ~quantile(., 0.25, na.rm = TRUE), median = ~median(., na.rm = TRUE), mean = ~mean(., na.rm = TRUE), Q3 = ~quantile(., 0.75, na.rm = TRUE), max = ~max(., na.rm = TRUE), sd = ~sd(., na.rm = TRUE) )))
+summary_stats <- df %>% 
+  select(where(is.numeric)) %>% 
+  summarise(across(
+    everything(), 
+    list(
+      min = ~min(., na.rm = TRUE),
+      Q1 = ~quantile(., 0.25, na.rm = TRUE),
+      median = ~median(., na.rm = TRUE),
+      mean = ~mean(., na.rm = TRUE),
+      Q3 = ~quantile(., 0.75, na.rm = TRUE),
+      max = ~max(., na.rm = TRUE),
+      sd = ~sd(., na.rm = TRUE)
+    )
+  ))
+
 
 summary(summary_stats)
 
@@ -114,6 +128,240 @@ table(df1$monthsantibodytest)
 <!--Chi-square test used for comparisons
 -->
 ```
+
+dependent_var <- "monthsantibodytest"
+
+categorical_vars <- c( "subcounty", "maritalstatus", "residence", "employmentstatus", "ancattendance",
+  "facilitylevelanc", "hivstatusbeforepregnancy", "syphilis", "uti", "miscarriage",
+  "abortion", "stillbirth", "premature", "haartduringpregnancy", "cd4cellcount",
+  "historysti_during_pregnancy", "genitalwart", "vaginaldischargesyndrome",
+  "genitalherpes", "treatedduringpregnancy", "malaria", "anaemia", "hypertension",
+  "partnerhivstatus", "whodiseasestage", "t_membrane_r", "sexbaby", "educationlevel",
+  "adherence")
+  
+all_vars <- categorical_vars[categorical_vars %in% names(df)]
+
+chi_results <- lapply(all_vars, function(var) {
+table <- table(df[[var]], df[[dependent_var]])
+test <- chisq.test(table)
+data.frame(variable = var, chi2_value = test$statistic, p_value = test$p.value )
+
+chi_result_df <- do.call(rbind,chi_results)
+
+print(chi_result_df)
+
+
+# Ensure chi_results_df is created
+if (nrow(chi_result_df) == 0) {
+  stop("Chi-square test results are empty. Check data for missing values or errors.")
+}
+
+# Print results in a styled kable table
+kable(chi_result_df, format = "html", digits = 4, caption = "Table 1: Chi-square Test Results for HIV Antigen Positivity") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make the first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust Chi2_Value column width
+  column_spec(3, width = "5cm") %>% # Adjust P-value column width
+  footnote(general = "Source: Computed results based on chi-square test.")
+
+
+<!-- Logistic-->
+
+
+# Define the dependent variable (HIV antigen positivity)
+dependent_var <- "monthsantibodytest"  
+
+# List of independent variables for bivariate logistic regression
+independent_vars <- c(
+  "ancattendance", "haartduringpregnancy", "whodiseasestage", "num_anc_visits",
+  "duration_labor_hours", "duration_breastfeeding_months", "never_attended_school",
+  "adherence", "hivstatusbeforepregnancy", "prematurity"
+)
+
+# Filter variables that exist in df
+available_vars <- independent_vars[independent_vars %in% names(df1)]
+
+# Check if we have valid independent variables
+if (length(available_vars) == 0) {
+  stop("No matching independent variables found in the dataset.")
+}
+
+
+# Function to perform bivariate logistic regression
+logit_results <- lapply(available_vars, function(var) {
+  formula <- as.formula(paste(dependent_var, "~", var))
+  model <- glm(formula, data = df1, family = binomial)
+  tidy_model <- tidy(model, conf.int = TRUE)  # Get summary with confidence intervals
+  
+  # Format output
+  data.frame(
+    Variable = var,
+    Odds_Ratio = round(exp(tidy_model$estimate[2]), 4),  # Exponentiate coefficient
+    CI = paste0("[", round(exp(tidy_model$conf.low[2]), 3), "-", round(exp(tidy_model$conf.high[2]), 3), "]"),
+    P_Value = round(tidy_model$p.value[2], 4)
+  )
+})
+
+bivar_logit_results_df <- do.call(rbind, logit_results)
+
+
+kable(bivar_logit_results_df, format = "html", digits = 4, caption = "Table 4.2: Factors Associated with HIV Antigen Positivity by Bivariate Logistic Regression") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make the first column bold (Variable)
+  column_spec(2, width = "5cm") %>% # Adjust Odds Ratio column width
+  column_spec(3, width = "5cm") %>% # Adjust Confidence Interval column width
+  column_spec(4, width = "5cm") %>% # Adjust P-value column width
+  footnote(general = "Source: Computed results based on bivariate logistic regression.")
+
+
+
+# Define the list of independent variables to test
+independent_vars <- c(
+  "ancattendance", "haartduringpregnancy", "whodiseasestage",
+  "num_anc_visits", "duration_labor_hours", "duration_breastfeeding_months",
+  "never_attended_school", "adherence", "hivstatusbeforepregnancy", "prematurity","whohivdiseasestage"
+)
+
+# Filter to variables that exist in the dataset
+available_vars <- independent_vars[independent_vars %in% names(df1)]
+
+# Run bivariate logistic regression for each variable
+logit_results <- lapply(available_vars, function(var) {
+  
+  # Skip variable if it does not have at least 2 unique non-NA values
+  if(length(unique(na.omit(df1[[var]]))) < 2) {
+    message(paste("Skipping", var, "as it has less than 2 unique non-NA values."))
+    return(NULL)
+  }
+  
+  formula <- as.formula(paste("monthsantibodytest", "~", var))
+  model <- glm(formula, data = df1, family = binomial)
+  tidy_model <- tidy(model, conf.int = TRUE)
+  
+  # Special handling for 'adherence' to show each category (except the intercept)
+  if (var == "adherence") {
+    adherence_results <- tidy_model %>%
+      filter(term != "(Intercept)") %>%
+      mutate(
+        Variable = "Adherence",
+        Category = gsub("adherence", "", term),  # Extract the level name
+        Odds_Ratio = round(exp(estimate), 4),
+        CI = paste0("[", round(exp(conf.low), 3), "-", round(exp(conf.high), 3), "]"),
+        P_Value = round(p.value, 4)
+      ) %>%
+      select(Variable, Category, Odds_Ratio, CI, P_Value)
+    return(adherence_results)
+  }
+  
+  # Default case for non-categorical variables
+  data.frame(
+    Variable = var,
+    Category = "",
+    Odds_Ratio = round(exp(tidy_model$estimate[2]), 4),
+    CI = paste0("[", round(exp(tidy_model$conf.low[2]), 3), "-", round(exp(tidy_model$conf.high[2]), 3), "]"),
+    P_Value = round(tidy_model$p.value[2], 4)
+  )
+})
+
+# Combine the results (removing any variables that were skipped)
+logit_results <- do.call(rbind, logit_results)
+
+# Print the results in a styled HTML table using kableExtra
+kable(logit_results, format = "html", digits = 4, 
+      caption = "Table 4.2: Factors Associated with Months Antibody Test by Bivariate Logistic Regression") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%    # Bold the 'Variable' column
+  column_spec(2, width = "5cm") %>%    # Adjust 'Category' column width
+  column_spec(3, width = "5cm") %>%    # Adjust 'Odds_Ratio' column width
+  column_spec(4, width = "5cm") %>%    # Adjust 'CI' column width
+  column_spec(5, width = "5cm") %>%    # Adjust 'P_Value' column width
+  footnote(general = "Source: Computed results based on bivariate logistic regression.")
+
+
+
+colnames(df1)
+
+# Define and run the multivariate logistic regression model
+multivar_model <- glm(
+  monthsantibodytest ~ lduration + durationofbfmonths + 
+    ancattendance + hivstatusbeforepregnancy + educationlevel + 
+    adherence + numberofancvisitsmade + premature,
+  data = df1, 
+  family = binomial
+)
+
+# Extract results
+multivar_results <- tidy(multivar_model, conf.int = TRUE) %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    Variable = recode(term, 
+                      "duration_labor" = "Duration of labor",
+                      "duration_breastfeeding" = "Duration of breast feeding in months",
+                      "antenatal_clinic_attendance" = "Antenatal clinic attendance",
+                      "haart_during_pregnancy" = "Initiation of HAART during pregnancy",
+                      "never_attended_school" = "Never attended school",
+                      "attended_primary" = "Attended up to Primary school",
+                      "attended_secondary" = "Attended up to Secondary school",
+                      "adherencePoor" = "Adherence to HAART during ANC (Poor)",
+                      "adherenceGood" = "Adherence to HAART during ANC (Good)",
+                      "no_anc_visits" = "No of ANC visits made during pregnancy",
+                      "premature" = "Premature"),
+    Odds_Ratio = round(exp(estimate), 4),
+    CI = paste0("[", round(exp(conf.low), 3), "-", round(exp(conf.high), 3), "]"),
+    P_Value = round(p.value, 4)
+  ) %>%
+  select(Variable, Odds_Ratio, CI, P_Value)
+
+# Display the results in a table
+kable(multivar_results, format = "html", digits = 4, 
+      caption = "Table 4.3: Factors Associated With HIV Antigen Positivity by Multivariate Logistic Regression") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%  
+  column_spec(2:4, width = "5cm") %>%
+  footnote(general = "Source: Computed results based on multivariate logistic regression analysis.")
+
+
+
+colnames(df1)
+
+# List of independent variables
+independent_vars <- c("employmentstatus", "ancattendance", "facilitylevelanc",
+                      "hivstatusbeforepregnancy", "premature",
+                      "historyofstiduringpregnancy", "cd4cellcountcellsmm3", "whohivdiseasestage",
+                      "numberofancvisitsmade", "durationofbfmonths")
+
+# Apply Bivariate Cox PH Models for each variable
+cox_results <- lapply(independent_vars, function(var) {
+  formula <- as.formula(paste("Surv(time, monthsantibodytest) ~", var))
+  model <- coxph(formula, data = df1)
+  tidy_model <- tidy(model, conf.int = TRUE)  # Extract HR, CI, p-value
+  
+  # Format the output
+  data.frame(
+    Variable = var,
+    HR = round(exp(tidy_model$estimate), 3),  # Exponentiate to get Hazard Ratio
+    CI = paste0("[", round(exp(tidy_model$conf.low), 3), "-", round(exp(tidy_model$conf.high), 3), "]"),
+    P_Value = round(tidy_model$p.value, 3)
+  )
+})
+
+# Combine results into a single table
+cox_results_df <- bind_rows(cox_results)
+
+# Print results
+print(cox_results_df)
+
+
+
+
+
+
+
+
+# Combine results into a data frame
+bivar_logit_results_df <- do.call(rbind, logit_results)
+
+
 
 cat_vars <- names(df)[sapply(df, function(x) is.character(x) | is.factor(x))] 
 cat_vars <- setdiff(cat_vars, "monthsantibodytest")
