@@ -351,7 +351,14 @@ cox_results_df <- bind_rows(cox_results)
 # Print results
 print(cox_results_df)
 
-
+# Generate Harvard-style table with kableExtra
+kable(cox_results_df, format = "html", digits = 4, caption = "Table 4.4: Factors Associated With HIV Antigen Positivity by Bivariate Cox PH Model") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make first column (Variable) bold
+  column_spec(2, width = "5cm") %>% # Adjust HR column width
+  column_spec(3, width = "6cm") %>% # Adjust CI column width
+  column_spec(4, width = "4cm") %>% # Adjust P-value column width
+  footnote(general = "Source: Computed results based on statistical analysis.")
 
 
 
