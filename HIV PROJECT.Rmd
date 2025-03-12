@@ -124,6 +124,20 @@ df1 <- df %>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == 
 
 table(df1$monthsantibodytest)
 
+
+
+<!--Create survival object-->
+
+surv_obj <- Surv(time = df1$time, event = df1$monthsantibodytest)
+
+<!--Fit Kaplan-Meier survival model-->
+
+km_fit <- survfit(surv_obj ~ 1, data = df1)
+
+<!--Plot Kaplan-Meier curve-->
+
+ggsurvplot(km_fit, data = df1, conf.int = TRUE, ggtheme = theme_minimal(), title = "Kaplan-Meier Survival Curve", xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
+
 ```{=html}
 <!--Chi-square test used for comparisons
 -->
@@ -131,44 +145,49 @@ table(df1$monthsantibodytest)
 
 dependent_var <- "monthsantibodytest"
 
-categorical_vars <- c( "subcounty", "maritalstatus", "residence", "employmentstatus", "ancattendance",
+categorical_vars <- c(
+  "subcounty", "maritalstatus", "residence", "employmentstatus", "ancattendance",
   "facilitylevelanc", "hivstatusbeforepregnancy", "syphilis", "uti", "miscarriage",
   "abortion", "stillbirth", "premature", "haartduringpregnancy", "cd4cellcount",
   "historysti_during_pregnancy", "genitalwart", "vaginaldischargesyndrome",
   "genitalherpes", "treatedduringpregnancy", "malaria", "anaemia", "hypertension",
   "partnerhivstatus", "whodiseasestage", "t_membrane_r", "sexbaby", "educationlevel",
-  "adherence")
-  
-all_vars <- categorical_vars[categorical_vars %in% names(df)]
+  "adherence"
+)
+
+
+all_vars <- categorical_vars[categorical_vars %in% names(df1)]
+
 
 chi_results <- lapply(all_vars, function(var) {
-table <- table(df[[var]], df[[dependent_var]])
-test <- chisq.test(table)
-data.frame(variable = var, chi2_value = test$statistic, p_value = test$p.value )
+  table <- table(df[[var]], df[[dependent_var]])
+  test <- chisq.test(table)
+  data.frame(variable = var, chi2_value = test$statistic, p_value = test$p.value)
+})
 
-chi_result_df <- do.call(rbind,chi_results)
+# Combine the results into a single data frame
+chi_result_df <- do.call(rbind, chi_results)
 
-print(chi_result_df)
 
-
-# Ensure chi_results_df is created
 if (nrow(chi_result_df) == 0) {
   stop("Chi-square test results are empty. Check data for missing values or errors.")
 }
 
-# Print results in a styled kable table
+
 kable(chi_result_df, format = "html", digits = 4, caption = "Table 1: Chi-square Test Results for HIV Antigen Positivity") %>%
   kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make the first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust Chi2_Value column width
-  column_spec(3, width = "5cm") %>% # Adjust P-value column width
+  column_spec(1, bold = TRUE) %>%   
+  column_spec(2, width = "5cm") %>% 
+  column_spec(3, width = "5cm") %>% 
   footnote(general = "Source: Computed results based on chi-square test.")
 
 
-<!-- Logistic-->
 
 
-# Define the dependent variable (HIV antigen positivity)
+
+<!--  Factors Associated with HIV Antigen Positivity by Bivariate Logistic Regression-->
+
+
 dependent_var <- "monthsantibodytest"  
 
 # List of independent variables for bivariate logistic regression
@@ -207,79 +226,15 @@ bivar_logit_results_df <- do.call(rbind, logit_results)
 
 kable(bivar_logit_results_df, format = "html", digits = 4, caption = "Table 4.2: Factors Associated with HIV Antigen Positivity by Bivariate Logistic Regression") %>%
   kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make the first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust Odds Ratio column width
-  column_spec(3, width = "5cm") %>% # Adjust Confidence Interval column width
-  column_spec(4, width = "5cm") %>% # Adjust P-value column width
+  column_spec(1, bold = TRUE) %>%   
+  column_spec(2, width = "5cm") %>% 
+  column_spec(3, width = "5cm") %>% 
+  column_spec(4, width = "5cm") %>% 
   footnote(general = "Source: Computed results based on bivariate logistic regression.")
 
 
 
-# Define the list of independent variables to test
-independent_vars <- c(
-  "ancattendance", "haartduringpregnancy", "whodiseasestage",
-  "num_anc_visits", "duration_labor_hours", "duration_breastfeeding_months",
-  "never_attended_school", "adherence", "hivstatusbeforepregnancy", "prematurity","whohivdiseasestage"
-)
-
-# Filter to variables that exist in the dataset
-available_vars <- independent_vars[independent_vars %in% names(df1)]
-
-# Run bivariate logistic regression for each variable
-logit_results <- lapply(available_vars, function(var) {
-  
-  # Skip variable if it does not have at least 2 unique non-NA values
-  if(length(unique(na.omit(df1[[var]]))) < 2) {
-    message(paste("Skipping", var, "as it has less than 2 unique non-NA values."))
-    return(NULL)
-  }
-  
-  formula <- as.formula(paste("monthsantibodytest", "~", var))
-  model <- glm(formula, data = df1, family = binomial)
-  tidy_model <- tidy(model, conf.int = TRUE)
-  
-  # Special handling for 'adherence' to show each category (except the intercept)
-  if (var == "adherence") {
-    adherence_results <- tidy_model %>%
-      filter(term != "(Intercept)") %>%
-      mutate(
-        Variable = "Adherence",
-        Category = gsub("adherence", "", term),  # Extract the level name
-        Odds_Ratio = round(exp(estimate), 4),
-        CI = paste0("[", round(exp(conf.low), 3), "-", round(exp(conf.high), 3), "]"),
-        P_Value = round(p.value, 4)
-      ) %>%
-      select(Variable, Category, Odds_Ratio, CI, P_Value)
-    return(adherence_results)
-  }
-  
-  # Default case for non-categorical variables
-  data.frame(
-    Variable = var,
-    Category = "",
-    Odds_Ratio = round(exp(tidy_model$estimate[2]), 4),
-    CI = paste0("[", round(exp(tidy_model$conf.low[2]), 3), "-", round(exp(tidy_model$conf.high[2]), 3), "]"),
-    P_Value = round(tidy_model$p.value[2], 4)
-  )
-})
-
-# Combine the results (removing any variables that were skipped)
-logit_results <- do.call(rbind, logit_results)
-
-# Print the results in a styled HTML table using kableExtra
-kable(logit_results, format = "html", digits = 4, 
-      caption = "Table 4.2: Factors Associated with Months Antibody Test by Bivariate Logistic Regression") %>%
-  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%    # Bold the 'Variable' column
-  column_spec(2, width = "5cm") %>%    # Adjust 'Category' column width
-  column_spec(3, width = "5cm") %>%    # Adjust 'Odds_Ratio' column width
-  column_spec(4, width = "5cm") %>%    # Adjust 'CI' column width
-  column_spec(5, width = "5cm") %>%    # Adjust 'P_Value' column width
-  footnote(general = "Source: Computed results based on bivariate logistic regression.")
-
-
-
-colnames(df1)
+<!--Factors Associated With HIV Antigen Positivity by Multivariate Logistic Regression-->
 
 # Define and run the multivariate logistic regression model
 multivar_model <- glm(
@@ -322,7 +277,7 @@ kable(multivar_results, format = "html", digits = 4,
 
 
 
-colnames(df1)
+<!--Bivariate Cox PH Model-->
 
 # List of independent variables
 independent_vars <- c("employmentstatus", "ancattendance", "facilitylevelanc",
@@ -348,8 +303,6 @@ cox_results <- lapply(independent_vars, function(var) {
 # Combine results into a single table
 cox_results_df <- bind_rows(cox_results)
 
-# Print results
-print(cox_results_df)
 
 # Generate Harvard-style table with kableExtra
 kable(cox_results_df, format = "html", digits = 4, caption = "Table 4.4: Factors Associated With HIV Antigen Positivity by Bivariate Cox PH Model") %>%
@@ -359,274 +312,6 @@ kable(cox_results_df, format = "html", digits = 4, caption = "Table 4.4: Factors
   column_spec(3, width = "6cm") %>% # Adjust CI column width
   column_spec(4, width = "4cm") %>% # Adjust P-value column width
   footnote(general = "Source: Computed results based on statistical analysis.")
-
-
-
-
-
-
-# Combine results into a data frame
-bivar_logit_results_df <- do.call(rbind, logit_results)
-
-
-
-cat_vars <- names(df)[sapply(df, function(x) is.character(x) | is.factor(x))] 
-cat_vars <- setdiff(cat_vars, "monthsantibodytest")
-
-chi_results <- data.frame(Variable = character(), Chi_Square = numeric(), P_Value = numeric())
-
-for (var in cat_vars) { tbl <- table(df[[var]], df$monthsantibodytest)
-  test <- chisq.test(tbl)
-  chi_results <- rbind(chi_results, data.frame(
-    Variable = var,
-    Chi_Square = signif(test$statistic, 5), P_Value = signif(test$p.value, 5) )) }
-
-chi_results <- chi_results[order(chi_results$P_Value), ]
-
-print(chi_results)
-
-
-
-html_output <- kable(chi_results, format = "html") %>%
-  kable_styling(full_width = TRUE)
-
-save_kable(html_output, file = "chi_results.html")
-
-file_path <- "chi_results.html"
-browseURL(file_path)
-
-file_path <- "chi_results.png"
-browseURL(file_path)
-
-file_path <- "chi_results.docx"
-browseURL(file_path)
-
-
-
-# Print with kable styling
-kable(chi_results, format = "html", digits = 4) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
-  
-
-# Generate Harvard-style table with full preview
-kable(chi_results, format = "html", digits = 4, caption = "Table 1: Chi-Square Test Results") %>%
-  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust P-value column width
-  column_spec(3, width = "5cm") %>% # Adjust Chi-Square column width
-  footnote(general = "Source: Computed results based on statistical analysis.")  # Add a Harvard-style citation
-
-library(flextable)
-library(officer)
-
-# Convert to a Harvard-style Word table
-doc <- read_docx() %>% 
-  body_add_flextable(flextable(chi_results) %>%
-    set_table_properties(width = 1, layout = "autofit"))
-
-# Save as Word
-print(doc, target = "chi_results_harvard.docx")
-browseURL("chi_results_harvard.docx")
-
-
-
-<!--Create survival object-->
-
-surv_obj <- Surv(time = df$time, event = df$monthsantibodytest)
-
-<!--Fit Kaplan-Meier survival model-->
-
-km_fit <- survfit(surv_obj ~ 1, data = df)
-
-<!--Plot Kaplan-Meier curve-->
-
-ggsurvplot(km_fit, data = df, conf.int = TRUE, ggtheme = theme_minimal(), title = "Kaplan-Meier Survival Curve", xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
-
-
-
-#df <- na.omit(df)
-
-
-
-<!--Logistic Regresson-->
-
-logit_model <- glm(
-  monthsantibodytest ~ subcounty + maritalstatus + residence + 
-    employmentstatus + ancattendance + facilitylevelanc + 
-    hivstatusbeforepregnancy + syphillis + uti + educationlevel + 
-    sexofthebaby + whohivdiseasestage + patnershivstatus + tmembraner, 
-  data = df, 
-  family = binomial
-)
-
-summary(logit_model)
-
-
-# Generate Harvard-style table for logistic regression model summary
-logit_summary <- summary(logit_model)$coefficients
-logit_summary_df <- as.data.frame(logit_summary)
-colnames(logit_summary_df) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-
-# Display table with kable
-kable(logit_summary_df, format = "html", digits = 4, caption = "Table 1: Logistic Regression Model Summary") %>%
-  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust Std. Error column width
-  column_spec(3, width = "5cm") %>% # Adjust z value column width
-  column_spec(4, width = "5cm") %>% # Adjust P-value column width
-  footnote(general = "Source: Computed results based on logistic regression analysis.")  # Add a Harvard-style citation
-
-
-
-<!--Cox Proportional Regression-->
-
-length(surv_obj)  # Should match the number of rows in df
-nrow(df)  # Should match length(surv_obj)
-
-
-df_clean <- df %>% drop_na(monthsantibodytest, time)
-
-surv_obj <- Surv(df_clean$time, df_clean$monthsantibodytest)
-
-surv_diff <- survdiff(surv_obj ~ monthsantibodytest, data = df_clean)
-
-print(surv_diff)
-
-
-cox_model <- coxph(Surv(time, monthsantibodytest) ~ 
-                     subcounty + maritalstatus + residence + 
-                     employmentstatus + ancattendance + 
-                     facilitylevelanc + hivstatusbeforepregnancy + 
-                     syphillis + uti + educationlevel + 
-                     sexofthebaby + whohivdiseasestage + 
-                     patnershivstatus + tmembraner, 
-                   data = df)
-
-summary(cox_model)
-
-# Generate Harvard-style table for Cox model summary
-cox_summary <- summary(cox_model)$coefficients
-
-# Format the Exp(Coef) column to 4 significant figures
-cox_summary_df$Exp.Coef <- format(cox_summary_df$`Exp(Coef)`, digits = 4)
-cox_summary_df <- as.data.frame(cox_summary)
-colnames(cox_summary_df) <- c("Coef", "Exp(Coef)", "Se(Coef)", "z value", "Pr(>|z|)")
-
-# Display table with kable
-kable(cox_summary_df, format = "html", digits = 4, caption = "Table 1: Cox Proportional Hazards Model Summary") %>%
-  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust Exp(Coef) column width
-  column_spec(3, width = "5cm") %>% # Adjust Se(Coef) column width
-  column_spec(4, width = "5cm") %>% # Adjust z value column width
-  column_spec(5, width = "5cm") %>% # Adjust P-value column width
-  footnote(general = "Source: Computed results based on Cox proportional hazards analysis.")  # Add a Harvard-style citation
-
-
-
-<!--bivariate model-->
-
-predictors_logit <- c("age", "weightkg", "maritalstatus", "residence", "employmentstatus", "hivstatusbeforepregnancy","ancattendance", "facilitylevelanc", "educationlevel", "adherence","cd4cellcountcellsmm3")
-
-bivar_logit_results <- lapply(predictors_logit, function(var) { 
-  form <- as.formula(paste("monthsantibodytest ~", var))  
-  mod <- glm(form, data = df, family = binomial)  
-  s <- summary(mod)  
-  coef_info <- s$coefficients[2, ]  # Fixing "<-" operator issue
-  or_val <- exp(coef_info[1])  
-  ci <- exp(confint(mod)[2, ])  
-  
-  data.frame(
-    Variable = var, 
-    Estimate = coef_info[1], 
-    StdError = coef_info[2], 
-    Z_value = coef_info[3], 
-    P_value = coef_info[4], 
-    Odds_Ratio = or_val, 
-    CI_lower = ci[1], 
-    CI_upper = ci[2],
-    row.names = NULL
-  )  
-})
-
-# Combine results into a single data frame
-bivar_logit_results_df <- do.call(rbind, bivar_logit_results)
-
-# Print results
-print(bivar_logit_results_df)
-
-# Display the table with kable styling
-kable(bivar_logit_results_df, format = "html", digits = 4, caption = "Table 1: Logistic Regression Summary") %>%
-  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make the first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust Estimate column width
-  column_spec(3, width = "5cm") %>% # Adjust StdError column width
-  column_spec(4, width = "5cm") %>% # Adjust Z_value column width
-  column_spec(5, width = "5cm") %>% # Adjust P-value column width
-  column_spec(6, width = "5cm") %>% # Adjust Odds_Ratio column width
-  column_spec(7, width = "5cm") %>% # Adjust CI_lower column width
-  column_spec(8, width = "5cm") %>% # Adjust CI_upper column width
-  footnote(general = "Source: Computed results based on logistic regression analysis.")
-
-
-# Check column names to ensure P_value exists
-colnames(bivar_logit_results_df)
-
-# Filter significant variables (P_value < 0.05)
-selected_cox <- bivar_logit_results_df %>%
-  filter(P_value < 0.05) %>%
-  pull(Variable)
-
-# Print selected variables
-print(selected_cox)
-
-
-if(length(selected_cox) > 0) {
-  # Build multivariate Cox model using selected predictors
-  form_multi_cox <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(selected_cox, collapse = " + ")))
-  
-  multi_cox_model <- coxph(form_multi_cox, data = df)
-
-  print("Multivariate Cox Regression Model Summary:")
-  print(summary(multi_cox_model))
-  
-} else {
-  cat("No predictors reached p < 0.05 in bivariate Cox regression.\nConsider using all candidate predictors.\n")
-
-  # Alternatively, force a multivariate model with all predictors:
-  form_multi_cox <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(predictors_cox, collapse = " + ")))
-  
-  multi_cox_model <- coxph(form_multi_cox, data = df)
-
-  print("Multivariate Cox Regression Model Summary (using all predictors):")
-  print(summary(multi_cox_model))
-}
-
-# Prepare the summary of the Cox model
-cox_summary <- summary(cox_model)$coefficients
-cox_summary_df <- as.data.frame(cox_summary)
-
-# Format the Exp(Coef) and lower/upper 95% CI columns to 4 significant figures
-cox_summary_df$`exp(coef)` <- format(cox_summary_df$`exp(coef)`, digits = 4)
-cox_summary_df$`lower .95` <- format(cox_summary_df$`lower .95`, digits = 4)
-cox_summary_df$`upper .95` <- format(cox_summary_df$`upper .95`, digits = 4)
-
-# Rename columns for clarity (there are only 7 columns in the original summary)
-colnames(cox_summary_df) <- c("Coef", "Exp(Coef)", "Se(Coef)", "z value", "Pr(>|z|)", "Lower 95%", "Upper 95%")
-
-# Display the table with kable
-kable(cox_summary_df, format = "html", digits = 4, caption = "Table 1: Multivariate Cox Regression Model Summary") %>%
-  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
-  column_spec(1, bold = TRUE) %>%   # Make first column bold (Variable)
-  column_spec(2, width = "5cm") %>% # Adjust Exp(Coef) column width
-  column_spec(3, width = "5cm") %>% # Adjust Se(Coef) column width
-  column_spec(4, width = "5cm") %>% # Adjust z value column width
-  column_spec(5, width = "5cm") %>% # Adjust P-value column width
-  column_spec(6, width = "5cm") %>% # Adjust Exp(-Coef) column width
-  column_spec(7, width = "5cm") %>% # Adjust Lower 95% column width
-  column_spec(8, width = "5cm") %>% # Adjust Upper 95% column width
-  footnote(general = "Source: Computed results based on multivariate Cox regression analysis.")  # Add a Harvard-style citation
-
 
 
 <!--Geographical-->
@@ -748,5 +433,3 @@ ggplot(data = homabay_shp) +
     panel.grid = element_blank()  # Remove grid for clarity
   )
 
-<!--Bayessian Modelling-->
-R Studio\R_Statistical-Language
