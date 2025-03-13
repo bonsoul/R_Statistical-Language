@@ -6,7 +6,7 @@ output: html_document
 ---
 
 <!-- Loading libraries -->
-
+install.packages("spdep")
 install.packages("corrplot") 
 install.packages("randomForest") 
 install.packages("lava") 
@@ -18,9 +18,10 @@ install.packages("RColorBrewer")
 install.packages("gridExtra")  # Install the package (only needed once)
 install.packages("flextable")
 install.packages("officer")
+install.packages("CARBayes")
 
 
-
+library(CARBayes)
 library(gridExtra)             
 library(grid) 
 library(survival)
@@ -41,6 +42,7 @@ library(mgcv)
 library(knitr)
 library(kableExtra)
 library(broom)
+library(spdep)
 
 <!-- Load the dataset -->
 
@@ -286,6 +288,7 @@ independent_vars <- c("employmentstatus", "ancattendance", "facilitylevelanc",
                       "numberofancvisitsmade", "durationofbfmonths")
 
 # Apply Bivariate Cox PH Models for each variable
+
 cox_results <- lapply(independent_vars, function(var) {
   formula <- as.formula(paste("Surv(time, monthsantibodytest) ~", var))
   model <- coxph(formula, data = df1)
@@ -312,6 +315,37 @@ kable(cox_results_df, format = "html", digits = 4, caption = "Table 4.4: Factors
   column_spec(3, width = "6cm") %>% # Adjust CI column width
   column_spec(4, width = "4cm") %>% # Adjust P-value column width
   footnote(general = "Source: Computed results based on statistical analysis.")
+
+<!--Multivariate-->
+
+# List of independent variables
+independent_vars <- c("hivstatusbeforepregnancy","cd4cellcountcellsmm3", "whohivdiseasestage","adherence")
+
+# Create a formula with all independent variables for the multivariate model
+multivariate_formula <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(independent_vars, collapse = " + ")))
+
+# Apply Multivariate Cox PH Model
+multivariate_model <- coxph(multivariate_formula, data = df1)
+
+# Tidy the model to extract HR, CI, and p-values
+tidy_multivariate_model <- tidy(multivariate_model, conf.int = TRUE)
+
+# Format the output
+multivariate_results_df <- data.frame(
+  Variable = tidy_multivariate_model$term,
+  HR = round(exp(tidy_multivariate_model$estimate), 3),  # Exponentiate to get Hazard Ratio
+  CI = paste0("[", round(exp(tidy_multivariate_model$conf.low), 3), "-", round(exp(tidy_multivariate_model$conf.high), 3), "]"),
+  P_Value = round(tidy_multivariate_model$p.value, 3)
+)
+
+# Generate Harvard-style table with kableExtra
+kable(multivariate_results_df, format = "html", digits = 4, caption = "Table 4.X: Factors Associated With HIV Antigen Positivity by Multivariate Cox PH Model") %>%
+  kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
+  column_spec(1, bold = TRUE) %>%   # Make first column (Variable) bold
+  column_spec(2, width = "5cm") %>% # Adjust HR column width
+  column_spec(3, width = "6cm") %>% # Adjust CI column width
+  column_spec(4, width = "4cm") %>% # Adjust P-value column width
+  footnote(general = "Source: Computed results based on multivariate Cox PH model.")
 
 
 <!--Geographical-->
@@ -432,4 +466,94 @@ ggplot(data = homabay_shp) +
     panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
     panel.grid = element_blank()  # Remove grid for clarity
   )
+
+
+colnames(df1)
+df2 <- df1[!is.na(df1$monthsantibodytest), ]
+
+# Convert to an sf object
+df1_sf <- st_as_sf(df2, coords = c("longitude", "latitude"), crs = 4326)
+
+# Check the structure
+print(df1_sf)
+
+library(sp)
+library(sf)
+nb <- knn2nb(knearneigh(st_coordinates(df1_sf), k = 5))
+print(nb)
+
+lw <- nb2listw(nb, style = "W", zero.policy = TRUE)
+
+length(df1_sf$monthsantibodytest)
+length(lw$neighbours)
+
+
+
+moran_test <- moran.test(df1_sf_clean$monthsantibodytest, lw)
+print(moran_test)
+
+
+geary_test <- geary.test(df1_sf_clean$monthsantibodytest, lw)
+print(geary_test)
+
+
+#define the formula
+
+formula <- monthsantibodytest ~ ancattendance + haartduringpregnancy + whodiseasestage + num_anc_visits
+
+
+str(df1_sf_clean)
+summary(df1_sf_clean)
+
+df1_sf_clean <- na.omit(df1_sf_clean)
+
+colnames(df1_sf_clean)
+
+dim("W")
+
+nrow(df1_sf_clean)
+
+W <- as.matrix(nb2mat(nb))  
+dim(W) 
+
+
+nb <- poly2nb(df1_sf_clean)
+W <- nb2mat(nb, style = "B") 
+
+
+print(nb)
+
+
+print(family)
+print(class(family))
+
+family <- "poisson"  # Explicitly define it
+
+
+bayesian_model <- S.CARleroux(
+  formula = formula, 
+  data = df1_sf, 
+  family = "poisson", 
+  W = as.matrix(nb2mat(nb)), 
+  burnin = 1000, 
+  n.sample = 10000, 
+  thin = 10, 
+  n.chains = 1, 
+  n.cores = 1, 
+  prior.mean.beta = 0, 
+  prior.var.beta = 10, 
+  prior.tau2 = c(1, 1), 
+  rho = 1, 
+  MALA = FALSE, 
+  verbose = TRUE
+)
+
+
+
+summary(bayesian_model)
+
+
+
+bayesian_model <- S.CARleroux(formula=formula, data=df1_sf_clean, family="poisson", W=as.matrix(nb2mat(nb)))
+summary(bayesian_model)
 
