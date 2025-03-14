@@ -14,8 +14,8 @@ library(tidyr)
 
 
 #read data(cholera)
-data <- read_csv("D:/Downloads/cleaned_cholera_data.csv")
-View(data)
+data <- read_csv("D:/Downloads/1chorela_cases_dataset.csv")
+colnames(data)
 
 
 #reading shape files

@@ -13,21 +13,20 @@ library(readr)
 library(sf)        # For spatial mapping
 library(leaflet)   # For interactive maps
 library(forecast)
+library(DT)
 
 
 # Load dataset
-data <- read_csv("D:/Downloads/2Cleaned_Final - 2Cleaned_Final.csv (2).csv")
+data <- read_csv("D:/Downloads/1chorela_cases_dataset.csv")
+colnames(data)
 
 
 # Ensure date format
-data$`Date of Onset` <- as.Date(data$`Date of Onset`, format="%Y-%m-%d")
+data$`Date Of Onset` <- as.Date(data$`Date Of Onset`, format="%Y-%m-%d")
 
 # Create Year column
-data$Year <- format(data$`Date of Onset`, "%Y")
+data$Year <- format(data$`Date Of Onset`, "%Y")
 
-
-# Convert to sf object for mapping
-data_sf <- st_as_sf(data, coords = c("longitude", "latitude"), crs = 4326)
 
 # Define UI
 ui <- fluidPage(
@@ -83,11 +82,21 @@ server <- function(input, output) {
   
   # Age Distribution
   output$age_dist <- renderPlot({
-    ggplot(data, aes(x = Age)) +
-      geom_histogram(fill="green", bins=30) +
-      labs(title = "Age Distribution", x = "Age", y = "Frequency") +
+    # Create age bins using the 'cut' function
+    data$AgeGroup <- cut(data$Age, 
+                         breaks = seq(0, max(data$Age), by = 10), 
+                         include.lowest = TRUE, 
+                         right = FALSE, 
+                         labels = paste(seq(0, max(data$Age)-10, by = 10), seq(9, max(data$Age), by = 10), sep = "-"))
+    
+    # Plot histogram with grouped age ranges
+    ggplot(data, aes(x = AgeGroup)) +
+      geom_bar(fill = "green") +
+      labs(title = "Age Distribution", x = "Age Range", y = "Frequency") +
       theme_minimal()
   })
+  
+
   
   # Sex Distribution
   output$sex_dist <- renderPlot({

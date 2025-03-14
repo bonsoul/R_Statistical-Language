@@ -145,17 +145,23 @@ ggsurvplot(km_fit, data = df1, conf.int = TRUE, ggtheme = theme_minimal(), title
 -->
 ```
 
+colnames(df1)
+
 dependent_var <- "monthsantibodytest"
 
 categorical_vars <- c(
-  "subcounty", "maritalstatus", "residence", "employmentstatus", "ancattendance",
-  "facilitylevelanc", "hivstatusbeforepregnancy", "syphilis", "uti", "miscarriage",
-  "abortion", "stillbirth", "premature", "haartduringpregnancy", "cd4cellcount",
-  "historysti_during_pregnancy", "genitalwart", "vaginaldischargesyndrome",
-  "genitalherpes", "treatedduringpregnancy", "malaria", "anaemia", "hypertension",
-  "partnerhivstatus", "whodiseasestage", "t_membrane_r", "sexbaby", "educationlevel",
-  "adherence"
+  "subcounty", "maritalstatus", "historyofstiduringpregnancy", "hypertension", 
+  "partnershivstatus", "whohivdiseasestage", "t_membrane_r", "sexofthebaby", 
+  "residence", "syphillis", "cd4cellcountcellsmm3", "employmentstatus", 
+  "ancattendance", "facilitylevelanc", "hivstatusbeforepregnancy", "syphilis", 
+  "uti", "miscarriage", "abortion", "stillbirth", "premature", 
+  "haartduringpregnancy", "cd4cellcount", "historysti_during_pregnancy", "distancetofacility",
+  "genitalwart", "vaginaldischargesyndrome", "genitalherpes", 
+  "treatedduringpregnancy", "malaria", "anaemia", "hypertension", 
+  "partnerhivstatus", "whohivdiseasestage", "t_membrane_r", "sexbaby", 
+  "educationlevel", "adherence","tmembraner", "hypertention","patnershivstatus"
 )
+
 
 
 all_vars <- categorical_vars[categorical_vars %in% names(df1)]
@@ -195,17 +201,12 @@ dependent_var <- "monthsantibodytest"
 # List of independent variables for bivariate logistic regression
 independent_vars <- c(
   "ancattendance", "haartduringpregnancy", "whodiseasestage", "num_anc_visits",
-  "duration_labor_hours", "duration_breastfeeding_months", "never_attended_school",
-  "adherence", "hivstatusbeforepregnancy", "prematurity"
+  "duration_labor_hours", "duration_breastfeeding_months", "never_attended_school","adherence", "hivstatusbeforepregnancy", "prematurity","premature","whohivdiseasestage","educationlevel","numberofancvisitsmade","durationofbfmonths","haartduringpregnancy"
 )
 
 # Filter variables that exist in df
 available_vars <- independent_vars[independent_vars %in% names(df1)]
 
-# Check if we have valid independent variables
-if (length(available_vars) == 0) {
-  stop("No matching independent variables found in the dataset.")
-}
 
 
 # Function to perform bivariate logistic regression
