@@ -21,6 +21,8 @@ install.packages("officer")
 install.packages("CARBayes")
 
 
+library(rnaturalearth)
+library(rnaturalearthdata)
 library(CARBayes)
 library(gridExtra)             
 library(grid) 
@@ -349,7 +351,14 @@ kable(multivariate_results_df, format = "html", digits = 4, caption = "Table 4.X
 
 file.exists("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
 
-sub_county <- st_read("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
+
+
+sub_county <- sub_county <- st_read("C:\\Users\\pc\\Desktop\\ke_subcounty.shp")
+
+
+lake_victoria <- st_read("C:\\Users\\pc\\Desktop\\Lake_Victoria_Shapefile.shp")
+
+
 
 print(sub_county)
 
@@ -365,6 +374,23 @@ homabay_shp <- sub_county %>% filter(county == "Homa Bay")
 homabay_shp
 
 ggplot() + geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + ggtitle("Map of Homa Bay Sub-Counties") + theme_minimal()
+
+
+# Perform spatial intersection between Homa Bay and Lake Victoria
+lake_in_homabay <- st_intersection(homabay_shp, lake_victoria)
+
+# Perform spatial join to include attributes from lake_victoria into lake_in_homabay
+lake_in_homabay <- st_join(lake_in_homabay, lake_victoria)
+
+# View the resulting attributes after spatial join
+head(lake_in_homabay)
+
+# Plot the result
+ggplot() + 
+  geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + 
+  geom_sf(data = lake_in_homabay, fill = "blue", color = "darkblue") + 
+  ggtitle("Homa Bay County with Section of Lake Victoria") + 
+  theme_minimal()
 
 <!-- Number of Cases-->
 
