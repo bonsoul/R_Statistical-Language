@@ -28,6 +28,15 @@ data$`Date Of Onset` <- as.Date(data$`Date Of Onset`, format="%Y-%m-%d")
 data$Year <- format(data$`Date Of Onset`, "%Y")
 
 
+unique(data$Sex)
+
+data <- data %>%
+  mutate(dm
+
+
+
+
+
 # Define UI
 ui <- fluidPage(
   titlePanel("Cholera Outbreak Analysis Dashboard"),

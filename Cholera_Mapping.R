@@ -28,6 +28,37 @@ print(sub_county)
 colnames(sub_county)
 #eda
 
+
+data$Age <- -as.numeric(data$Age)
+
+data <- data %>%
+  mutate(Age_Group = cut(Age, 
+                         breaks = seq(0, 100, by = 10), 
+                         labels = paste0(seq(0, 90, by = 10), "-", seq(9, 99, by = 10)), 
+                         right = FALSE))
+
+print(table(df$Age_Group))
+
+
+# Count the number of cases per age group
+
+age_distribution <- df %>%
+  group_by(Age_Group) %>%
+  summarise(Count = n()) %>%
+  arrange(Age_Group)
+
+# Print the results
+print(age_distribution)
+  
+  # Plot histogram with grouped age ranges
+  ggplot(data, aes(x = AgeGroup)) +
+    geom_bar(fill = "green") +
+    labs(title = "Age Distribution", x = "Age Range", y = "Frequency") +
+    theme_minimal()
+})
+
+
+
 #unique entries in Data
 
 unique(data$`Sub County`)

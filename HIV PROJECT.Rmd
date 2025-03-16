@@ -104,8 +104,7 @@ for (col in numeric_cols) {
     geom_histogram(binwidth = 30, fill = "blue", alpha = 0.7) + 
     ggtitle(paste("Histogram of", col)) + 
     theme_minimal() 
-  print(p)  # Ensure print is on a new line
-}
+  print(p)}
 
 
 png('histogram.png') dev.off()
@@ -117,10 +116,11 @@ p <- ggplot(df, aes(y = .data[[col]])) +
     geom_boxplot(fill = "lightblue", na.rm = TRUE) + 
     ggtitle(paste("Boxplot of", col)) + 
     theme_minimal() 
-  
-  print(p)  # Ensure print is on a new line
+    print(p)  
 }
 
+
+#Mutating +ve and -ne to be numerical
 
 df1 <- df %>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
 
@@ -175,12 +175,6 @@ chi_results <- lapply(all_vars, function(var) {
 
 # Combine the results into a single data frame
 chi_result_df <- do.call(rbind, chi_results)
-
-
-if (nrow(chi_result_df) == 0) {
-  stop("Chi-square test results are empty. Check data for missing values or errors.")
-}
-
 
 kable(chi_result_df, format = "html", digits = 4, caption = "Table 1: Chi-square Test Results for HIV Antigen Positivity") %>%
   kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
@@ -260,8 +254,8 @@ multivar_results <- tidy(multivar_model, conf.int = TRUE) %>%
                       "never_attended_school" = "Never attended school",
                       "attended_primary" = "Attended up to Primary school",
                       "attended_secondary" = "Attended up to Secondary school",
-                      "adherencePoor" = "Adherence to HAART during ANC (Poor)",
-                      "adherenceGood" = "Adherence to HAART during ANC (Good)",
+                      "adherencepoor" = "Adherence to HAART during ANC (Poor)",
+                      "adherencegood" = "Adherence to HAART during ANC (Good)",
                       "no_anc_visits" = "No of ANC visits made during pregnancy",
                       "premature" = "Premature"),
     Odds_Ratio = round(exp(estimate), 4),
@@ -319,8 +313,10 @@ kable(cox_results_df, format = "html", digits = 4, caption = "Table 4.4: Factors
 
 <!--Multivariate-->
 
+colnames(df1)
+
 # List of independent variables
-independent_vars <- c("hivstatusbeforepregnancy","cd4cellcountcellsmm3", "whohivdiseasestage","adherence")
+independent_vars <- c("hivstatusbeforepregnancy","haartduringpregnancy","cd4cellcountcellsmm3", "whohivdiseasestage","adherence")
 
 # Create a formula with all independent variables for the multivariate model
 multivariate_formula <- as.formula(paste("Surv(time, monthsantibodytest) ~", paste(independent_vars, collapse = " + ")))
