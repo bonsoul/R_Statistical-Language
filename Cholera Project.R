@@ -31,7 +31,19 @@ data$Year <- format(data$`Date Of Onset`, "%Y")
 unique(data$Sex)
 
 data <- data %>%
-  mutate(dm
+  mutate(sex = case_when(
+    str_detect(tolower(Sex),"m") ~ "Male",
+    str_detect(tolower(Sex),"M") ~ "Male",
+    str_detect(tolower(Sex),"male") ~ "Male",
+    str_detect(tolower(Sex),"MALE") ~ "Male",
+    str_detect(tolower(Sex),"f") ~ "Female"
+    str_detect(tolower(Sex),"F") ~ "Female",
+    str_detect(tolower(Sex),"FEMALE") ~ "Female",
+    str_detect(tolower(Sex),"female") ~ "Female",
+    str_detect(tolower(Sex),"f.") ~ "Female",
+    
+    TRUE ~ NA_character_
+  ))
 
 
 

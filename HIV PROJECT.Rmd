@@ -394,13 +394,17 @@ ggplot() +
 
 <!-- Number of Cases-->
 
-colnames(homabay_shp)
+colnames(df1)
 colnames(status_counts)
 
 
 unique(homabay_shp$subcounty)
 unique(status_counts$subcounty)
 
+status_counts <- df %>%
+  group_by(subcounty) %>%
+  summarize(monthsantibodytest = n())
+view(status_counts)
 
 status_counts <- status_counts %>%
   mutate(subcounty = case_when(
@@ -449,7 +453,6 @@ ggplot(data = homabay_shp) +
 
 <!--patient-->
 
-
 patient_count <- df %>%
   group_by(subcounty) %>%
   summarize(Number_Patients = n())
@@ -473,6 +476,8 @@ setdiff(unique(patient_count$subcounty), unique(homabay_shp$subcounty))
 
 homabay_shp <- st_join(homabay_shp, patient_count)
 
+  
+  
 ggplot(data = homabay_shp) +
   geom_sf(aes(fill = Number_Patients), color = "black", size = 0.3) +  # Map outline
   scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Number of Patients", na.value = "grey80") +  # Blue gradient
@@ -483,12 +488,13 @@ ggplot(data = homabay_shp) +
     x = "Longitude",
     y = "Latitude"
   ) +
-  hhhjyhjyhyjmtheme_minimal() +,
+  theme_minimal() +  # Corrected here
   theme(
     legend.position = "right",
     panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
     panel.grid = element_blank()  # Remove grid for clarity
   )
+
 
 
 colnames(df1)
