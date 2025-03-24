@@ -5,23 +5,11 @@ date: "2025-02-26"
 output: html_document
 ---
 
-<!-- Loading libraries -->
-install.packages("spdep")
-install.packages("corrplot") 
-install.packages("randomForest") 
-install.packages("lava") 
-install.packages("caret") 
-install.packages("survival") 
-install.packages("survminer") 
-install.packages("DCluster")
-install.packages("RColorBrewer")
-install.packages("gridExtra")  # Install the package (only needed once)
-install.packages("flextable")
-install.packages("officer")
-install.packages("CARBayes")
-install.packages("ggspatial")
 
+```{r setup, include=TRUE , warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)  
 
+ 
 
 library(rnaturalearth)
 library(rnaturalearthdata)
@@ -47,30 +35,27 @@ library(knitr)
 library(kableExtra)
 library(broom)
 library(spdep)
+library(brglm2)
+library(caret)
+```
 
-<!-- Load the dataset -->
+```{r, Readind the data , warning=FALSE}
 
 df <- read_excel("D:/Downloads/HIV - VARIABLES.xlsx")
 
 str(df)
+```
 
-<!--Rename coordinate columns for clarity-->
+```{r, Preprocessing}
+#Rename coordinate columns for clarity
+#df <- df %>% rename(latitude = var52, longitude = var51)
 
-df <- df %>% rename(latitude = var52, longitude = var51)
-
-<!--Summary of the dataset to verify changes-->
-
-summary(df)
-
-<!--Data Exploration-->
-
-duplicates <- df[duplicated(df),]
+duplicates <- df[duplicated(df),] #checking duplicates
 
 print(duplicates)
 
-<!--No duplicates-->
 
-missing_per_column <- colSums(is.na(df)) 
+missing_per_column <- colSums(is.na(df)) #columns with null values
 total_missing <- sum(missing_per_column) 
 print(total_missing) 
 print(missing_per_column)
@@ -78,8 +63,10 @@ print(missing_per_column)
 columns_with_missing <- names(missing_per_column[missing_per_column > 0]) 
 print(columns_with_missing)
 
-<!--Compute summary statistics for numeric columns-->
+```
 
+```{r, descriptive analysis}
+#Compute summary statistics for numeric columns
 summary_stats <- df %>% 
   select(where(is.numeric)) %>% 
   summarise(across(
@@ -94,27 +81,32 @@ summary_stats <- df %>%
       sd = ~sd(., na.rm = TRUE)
     )
   ))
-
-
 summary(summary_stats)
 
-<!--Visualize distributions with histograms-->
+```
 
-numeric_cols <- df %>% select(where(is.numeric)) %>% colnames() 
-numeric_cols <- setdiff(numeric_cols, c("longitude", "latitude"))
+```{r,hitograms}
+#Visualize distributions with histograms
 
-for (col in numeric_cols) { 
-  p <- ggplot(df, aes_string(x = col)) + 
-    geom_histogram(binwidth = 30, fill = "blue", alpha = 0.7) + 
-    ggtitle(paste("Histogram of", col)) + 
-    theme_minimal() 
-  print(p)}
+ggplot(df, aes(x = age)) + 
+  geom_histogram(binwidth = 5, fill = "blue", alpha = 0.7) + 
+  ggtitle("Histogram of Age") + 
+  theme_minimal()
+  
+  
+ggplot(df, aes(x = weightkg)) + 
+  geom_histogram(binwidth = 5, fill = "blue", alpha = 0.7) + 
+  ggtitle("Histogram of weightkg") + 
+  theme_minimal()
+  
 
+ggplot(df, aes(x = durationofbfmonths)) + 
+  geom_histogram(binwidth = 5, fill = "blue", alpha = 0.7) + 
+  ggtitle("Histogram of durationofbfmonths") + 
+  theme_minimal()
+```
 
-png('histogram.png') dev.off()
-
-<!--Boxplot-->
-
+```{r,Boxplots}
 for (col in numeric_cols) { 
 p <- ggplot(df, aes(y = .data[[col]])) +  
     geom_boxplot(fill = "lightblue", na.rm = TRUE) + 
@@ -122,28 +114,27 @@ p <- ggplot(df, aes(y = .data[[col]])) +
     theme_minimal() 
     print(p)  
 }
+```
 
-
-#Mutating +ve and -ne to be numerical
-
+```{r,Mutating +ve and -ne to be numerical}
 df1 <- df %>% mutate(monthsantibodytest = ifelse(tolower(monthsantibodytest) == "positive", 1, 0))
 
 table(df1$monthsantibodytest)
+```
 
-colnames(df1)
 
-
-<!--Create survival object-->
-
+```{r,survival analysis}
+#Create survival object
 surv_obj <- Surv(time = df1$time, event = df1$monthsantibodytest)
 
-<!--Fit Kaplan-Meier survival model-->
-
+#Fit Kaplan-Meier survival model
 km_fit <- survfit(surv_obj ~ 1, data = df1)
 
-<!--Plot Kaplan-Meier curve-->
-
+#Plot Kaplan-Meier curve
 ggsurvplot(km_fit, data = df1, conf.int = TRUE, ggtheme = theme_minimal(), title = "Kaplan-Meier Survival Curve", xlab = "Time (Months)", ylab = "HIV-Free Survival Probability")
+
+```
+
 
 ```{=html}
 <!--Chi-square test used for comparisons
@@ -199,9 +190,7 @@ dependent_var <- "monthsantibodytest"
 
 # List of independent variables for bivariate logistic regression
 independent_vars <- c(
-  "ancattendance", "haartduringpregnancy", "whodiseasestage", "num_anc_visits",
-  "duration_labor_hours", "duration_breastfeeding_months", "never_attended_school","adherence", "hivstatusbeforepregnancy", "prematurity","premature","whohivdiseasestage","educationlevel","numberofancvisitsmade","durationofbfmonths","haartduringpregnancy"
-)
+  "ancattendance","haartduringpregnancy", "whohivdiseasestage","numberofancvisitsmade","lduration","durationofbfmonths","educationlevel","adherence","hivstatusbeforepregnancy","premature") 
 
 # Filter variables that exist in df
 available_vars <- independent_vars[independent_vars %in% names(df1)]
@@ -241,7 +230,7 @@ kable(bivar_logit_results_df, format = "html", digits = 4, caption = "Table 4.2:
 # Define and run the multivariate logistic regression model
 multivar_model <- glm(
   monthsantibodytest ~ lduration + durationofbfmonths + 
-    ancattendance + hivstatusbeforepregnancy + educationlevel + 
+    ancattendance + haartduringpregnancy + hivstatusbeforepregnancy + educationlevel + 
     adherence + numberofancvisitsmade + premature,
   data = df1, 
   family = binomial
@@ -270,6 +259,7 @@ multivar_results <- tidy(multivar_model, conf.int = TRUE) %>%
   select(Variable, Odds_Ratio, CI, P_Value)
 
 # Display the results in a table
+
 kable(multivar_results, format = "html", digits = 4, 
       caption = "Table 4.3: Factors Associated With HIV Antigen Positivity by Multivariate Logistic Regression") %>%
   kable_styling(full_width = FALSE, position = "left", font_size = 14) %>%
@@ -283,7 +273,7 @@ kable(multivar_results, format = "html", digits = 4,
 
 # List of independent variables
 independent_vars <- c("employmentstatus", "ancattendance", "facilitylevelanc",
-                      "hivstatusbeforepregnancy", "premature",
+                      "hivstatusbeforepregnancy", "premature","haartduringpregnancy",
                       "historyofstiduringpregnancy", "cd4cellcountcellsmm3", "whohivdiseasestage",
                       "numberofancvisitsmade", "durationofbfmonths")
 
@@ -350,154 +340,62 @@ kable(multivariate_results_df, format = "html", digits = 4, caption = "Table 4.X
   footnote(general = "Source: Computed results based on multivariate Cox PH model.")
 
 
-<!--Geographical-->
-
+```{r,Spatial Analysis}
 file.exists("C:/Users/pc/Desktop/Counties Shape File/ke_subcounty.shp")
-
-
-
 sub_county <- sub_county <- st_read("C:\\Users\\pc\\Desktop\\ke_subcounty.shp")
-
-
 lake_victoria <- st_read("C:\\Users\\pc\\Desktop\\Lake_Victoria_Shapefile.shp")
-
-
-facilities <- st_read(C:\\Users\\pc\\Desktop\\homabay\\Homabay health Facilities  shapefiles.shp")
-
+#facilities <- st_read("C:\\Users\\pc\\Desktop\\homabay\\Homabay health Facilities shapefiles.shp")
 
 print(sub_county)
-
 ggplot(data = sub_county) + geom_sf(fill = "lightblue", color = "black", size = 0.3) + labs(title = "Kenya Sub-Counties Map") + theme_minimal()
 
-colnames(df)
-
-#df_sf <- st_as_sf(df, coords = c("longitude", "latitude"), crs = 4326)
-
-
-
+```
 
 <!-- Plotting Homa Bay-->
+```{r,Mapping Homa Bay SU cOUNTIES}
 
 homabay_shp <- sub_county %>% filter(county == "Homa Bay") 
-homabay_shp
 
 ggplot() + geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + ggtitle("Map of Homa Bay Sub-Counties") + theme_minimal()
-
-# Check CRS
-st_crs(homabay_shp)
-st_crs(df1)
-
-# Transform patient data to match the shapefile CRS
-df1 <- st_as_sf(df1, coords = c("longitude", "latitude"), crs = st_crs(homabay_shp))
-
-colnames(df1)
-
-library(sf)
-
-# Convert to sf object using Longitude and Latitude
-df1 <- st_as_sf(df1, coords = c("longitude", "latitude"), crs = 4326)
-
-# Confirm the CRS is applied
-st_crs(df1)
-
-view(df1)
-colnames(homabay_shp)
-
-
-ggplot() +
-  # Plot Sub-counties
-  geom_sf(data = homabay_shp, fill = "lightblue", color = "black") +
-  
-  # Plot Patient Locations
-  geom_sf(data = df1, color = "red", size = 2, alpha = 0.7) +
-  
-  # Customize Plot
-  ggtitle("Map of Homa Bay Sub-Counties with Patient Locations") +
-  theme_minimal()
-
-
-df1_coords <- as.data.frame(st_coordinates(df1))
-df1$Longitude <- df1_coords$X
-df1$Latitude <- df1_coords$Y
-
-# Plot using geom_point
-ggplot() +
-  # Plot Sub-counties
-  geom_sf(data = homabay_shp, fill = "lightblue", color = "black") +
-  
-  # Plot Patient Locations
-  geom_point(data = df1, aes(x = Longitude, y = Latitude), 
-             color = "red", size = 2, alpha = 0.7) +
-  
-  # Customize Plot
-  ggtitle("Map of Homa Bay Sub-Counties with Patient Locations") +
-  xlab("Longitude") +
-  ylab("Latitude") +
-  theme_minimal()
+```
 
 
 
-# Perform spatial intersection between Homa Bay and Lake Victoria
-lake_in_homabay <- st_intersection(homabay_shp, lake_victoria)
-
-# Perform spatial join to include attributes from lake_victoria into lake_in_homabay
-lake_in_homabay <- st_join(lake_in_homabay, lake_victoria)
-
-# View the resulting attributes after spatial join
-head(lake_in_homabay)
-
-# Plot the result
-ggplot() + 
-  geom_sf(data = homabay_shp, fill = "lightblue", color = "black") + 
-  geom_sf(data = lake_in_homabay, fill = "blue", color = "darkblue") + 
-  ggtitle("Homa Bay County with Section of Lake Victoria") + 
-  theme_minimal()
-
-<!-- Number of Cases-->
-
-colnames(df1)
-colnames(status_counts)
-
-
-unique(homabay_shp$subcounty)
-unique(status_counts$subcounty)
-
+```{r, Hiv Cases Per Sub County}
 status_counts <- df %>%
   group_by(subcounty) %>%
   summarize(monthsantibodytest = n())
-view(status_counts)
 
-status_counts <- rename(status_counts, total_cases = monthsantibodytest)
 
-status_counts <- status_counts %>%
+
+status_counts1 <- status_counts %>%
   mutate(subcounty = case_when(
-    subcounty == "Homa Bay" ~ "Homa Bay Town",
-    subcounty == "Karachauony" ~ "Karachuonyo",
-    subcounty == "Ragwe" ~ "Rangwe",
+    subcounty == "Homa Bay" ~ "Homa Bay Town Sub County",
+    subcounty == "Karachauony" ~ "Karachuonyo Sub County",
+    subcounty == "Ragwe" ~ "Rangwe Sub County",
+    subcounty == "Suba" ~ "Suba Sub County",
+    subcounty == "Mbita" ~ "Mbita Sub County",
+    subcounty == "Kasipul" ~ "Kasipul Sub County",
+    subcounty == "Kabondo Kasipul" ~ "Kabondo Kasipul Sub County",
+    subcounty == "Ndhiwa" ~ "Ndhiwa Sub County",
     TRUE ~ subcounty # Keep other names unchanged
   ))
 
-
-setdiff(unique(homabay_shp$subcounty), unique(status_counts$subcounty))
-setdiff(unique(status_counts$subcounty), unique(homabay_shp$subcounty))
-
-
 homabay_shp <- homabay_shp %>%
-  left_join(status_counts, by = "subcounty")
-
-
-# Verify after joining
+  left_join(status_counts1, by = "subcounty")
+  
 homabay_shp %>%
-  select(subcounty, total_cases) %>%
+  select(subcounty, monthsantibodytest) %>%
   st_drop_geometry() %>%
   head(10) %>%
-  kable(caption = "Total HIV Cases per Subcounty in Homa Bay")
+  kable(caption = "Total HIV Cases per Subcounty in Homa Bay") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
-# Plot the map
+
 ggplot(data = homabay_shp) +
-  geom_sf(aes(fill = total_cases), color = "white", size = 0.3) +  # Map outline
+  geom_sf(aes(fill = monthsantibodytest), color = "white", size = 0.3) +  # Map outline
   scale_fill_viridis_c(option = "magma", direction = -1, na.value = "grey80", name = "Total Cases") +  
-  geom_sf_text(aes(label = subcounty), size = 3, color = "black") +  # Subcounty labels
+  geom_sf_text(aes(label = subcounty), size = 3, color = "white") +  # Subcounty labels
   labs(
     title = "Geographical Distribution of HIV Cases in Homa Bay",
     subtitle = "Sub-county level analysis",
@@ -510,253 +408,216 @@ ggplot(data = homabay_shp) +
     legend.position = "right",
     panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
     panel.grid = element_blank()  # Remove grid for clarity
-)
+  )
+```
 
+#patient
 
-  
-ggplot(data = homabay_shp) +
-  geom_sf(aes(fill = total_cases), color = "black", size = 0.3) +
-  scale_fill_brewer(palette = "Blues", name = "Number of patients") +  # Use scale_fill_brewer()
-  labs(
-    title = "HIV Patient Distribution in Homa Bay County",
-    subtitle = "Sub-county level analysis",
-    x = "Longitude",
-    y = "Latitude"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-
-<!--patient-->
-
-library(ggspatial)
-
-homabay_shp <- st_transform(homabay_shp, 4326)
-lake_victoria <- st_transform(lake_victoria, 4326)
-facilities <- st_transform(facilities, 4326)
-
-
-homabay_shp <- st_transform(homabay_shp, 4326)
-lake_victoria <- st_transform(lake_victoria, 4326)
-facilities <- st_transform(facilities, 4326)
-
-
-ggplot() +
-  geom_sf(data = homabay_shp, fill = "skyblue", color = "white") +
-  geom_sf(data = lake_victoria, fill = "lightcyan", color = NA) +
-  geom_sf(data = facilities, color = "blue", size = 1) +
-  theme_minimal() +
-  labs(title = "PATIENT ORIGIN MAP") +
-  annotation_scale(location = "bl", width_hint = 0.5) +
-  annotation_north_arrow(location = "br", which_north = "true", 
-                           style = north_arrow_fancy_orienteering)
-
-
-
-ggplot() +
-  geom_sf(data = homabay_shp, fill = "skyblue", color = "white") +
-  theme_minimal() +
-  labs(title = "Homa Bay Subcounties") +
-  coord_sf()
-
-
-facilities_sf <- st_as_sf(facilities, coords = c("longitude", "latitude"), crs = 4326)
-
-
-Facilities <- read_csv("D:/Downloads/Homabay health Facilities.csv")
-View(Homabay_health_Facilities)
-
-# Check for coordinates that don't look right
-summary(Homabay_health_Facilities$Lat)
-summary(Homabay_health_Facilities$Long)
-
-# Identify rows with unusual coordinates
-invalid_coords <- Homabay_health_Facilities %>%
-  filter(Lat < -90 | Lat > 90 | Long < -180 | Long > 180)
-print(invalid_coords)
-
-colnames(Facilities)
-
-Facilities1 <- rename(Facilities,Facility_Name = Facility_n)
-
-colnames(Facilities)
-
-# Plot the facilities using ggplot2
-ggplot(data = Facilities1) +
-  geom_point(aes(x = Longitude, y = Latitude), color = "blue", size = 2) +
-  geom_text(aes(x = Longitude, y = Latitude, label = Facility_Name),
-            size = 3, hjust = -0.2, vjust = 0.5) +
-  labs(title = "Health Facilities in Homabay",
-       x = "Longitude", y = "Latitude") +
-  theme_minimal()
-
-
-ggplot(data = Facilities1) +
-  geom_point(aes(x = Longitude, y = Latitude), color = "blue", size = 2) +
-  labs(title = "Health Facilities in Homabay",
-       x = "Longitude", y = "Latitude") +
-  theme_minimal()
-
-
-ggplot() +
-  # Plot Subcounties
-  geom_sf(data = homabay_shp, fill = "#87CEFA", color = "white") +
-  
-  # Plot Patient Points
-  geom_point(data = facilities_sf, aes(x = longitude, y = latitude), 
-             color = "blue", size = 2) +
-  
-  # Add Subcounty Labels
-  geom_text(data = homabay_shp, aes(label = county_name, geometry = geometry),
-            stat = "sf_coordinates", size = 3, color = "black") +
-  
-  # Add Titles and Captions
-  labs(title = "PATIENT ORIGIN MAP",
-       caption = "Source: Hospital Data") +
-  
-  # Style the Plot
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 18))
-
-
-
-
-
-
-patient_count <- df %>%
+patients_count <- df1 %>%
   group_by(subcounty) %>%
-  summarize(Number_Patients = n())
+  summarize(count = n()) %>% 
+  rename(`Number of Patients` = count) 
+ 
 
-colnames(patient_count)
-
-unique(homabay_shp$subcounty)
-unique(patient_count$subcounty)
-
-class(patient_count)
-
-patient_count <- st_as_sf(patient_count, coords = c("longitude", "latitude"), crs = 4326) # Adjust CRS if needed
-
-
-patient_count <- patient_count %>%
+patient_count1 <- patients_count %>%
   mutate(subcounty = case_when(
-    subcounty == "Homa Bay" ~ "Homa Bay Town",
-    subcounty == "Karachauony" ~ "Karachuonyo",
-    subcounty == "Ragwe" ~ "Rangwe",
+    subcounty == "Homa Bay" ~ "Homa Bay Town Sub County",
+    subcounty == "Karachauony" ~ "Karachuonyo Sub County",
+    subcounty == "Ragwe" ~ "Rangwe Sub County",
+    subcounty == "Suba" ~ "Suba Sub County",
+    subcounty == "Mbita" ~ "Mbita Sub County",
+    subcounty == "Kasipul" ~ "Kasipul Sub County",
+    subcounty == "Kabondo Kasipul" ~ "Kabondo Kasipul Sub County",
+    subcounty == "Ndhiwa" ~ "Ndhiwa Sub County",
     TRUE ~ subcounty # Keep other names unchanged
   ))
 
 
-setdiff(unique(homabay_shp$subcounty), unique(patient_count$subcounty))
-setdiff(unique(patient_count$subcounty), unique(homabay_shp$subcounty))
-
-homabay_shp <- st_join(homabay_shp, patient_count)
-
+homabay_shp3 <- homabay_shp %>%
+  left_join(patient_count1, by = "subcounty")
   
-  
-ggplot(data = homabay_shp) +
-  geom_sf(aes(fill = Number_Patients), color = "black", size = 0.3) +  # Map outline
-  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Number of Patients", na.value = "grey80") +  # Blue gradient
-  geom_sf_text(aes(label = subcounty.x), size = 3, color = "white") +  # Add subcounty labels
+ 
+homabay_shp3 %>%
+  select(subcounty, `Number of Patients`) %>%
+  st_drop_geometry() %>%
+  head(10) %>%
+  kable(caption = "Total Patients per Subcounty in Homa Bay") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+ggplot(data = homabay_shp3) +
+  geom_sf(aes(fill = `Number of Patients`), color = "white", size = 0.3) +  # Map outline
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = "grey80", name = "Total Patients") +  
+  geom_sf_text(aes(label = subcounty), size = 3, color = "white") +  # Subcounty labels
   labs(
-    title = "Geographical Distribution of Patients in Homa Bay County",
+    title = "Geographical Distribution of HIV Cases in Homa Bay",
     subtitle = "Sub-county level analysis",
-    x = "Longitude",
-    y = "Latitude"
+    x = "",
+    y = "",
+    caption = "Data Source: [Your Source Here]"
   ) +
-  theme_minimal() +  # Corrected here
+  theme_minimal() +
   theme(
     legend.position = "right",
     panel.background = element_rect(fill = "lightgrey"),  # Light grey background for contrast
     panel.grid = element_blank()  # Remove grid for clarity
   )
 
+  
+  
+  
+
+subcounty_codes <- as.numeric(as.factor(df1$subcounty))
+df1$subcounty_code <- subcounty_codes
+
+str(coords)
+dim(coords)
+head(coords)
+
+coords <- as.matrix(df1$subcounty_code)
+nb <- knn2nb(knearneigh(coords, k = 3))
 
 
-colnames(df1)
-df2 <- df1[!is.na(df1$monthsantibodytest), ]
-
-# Convert to an sf object
-df1_sf <- st_as_sf(df2, coords = c("longitude", "latitude"), crs = 4326)
-
-# Check the structure
-print(df1_sf)
-
-library(sp)
-library(sf)
-nb <- knn2nb(knearneigh(st_coordinates(df1_sf), k = 5))
-print(nb)
-
-lw <- nb2listw(nb, style = "W", zero.policy = TRUE)
-
-length(df1_sf$monthsantibodytest)
-length(lw$neighbours)
+#reading health facilities
+data_facilities <- read_csv("D:/Downloads/Homabay health Facilities.csv")
+data_facilities1 <- data.frame(data_facilities)
+colnames(data_facilities1)
 
 
+df1$subcounty <- tolower(df1$subcounty)
+data_facilities1$Admin1 <- tolower(data_facilities1$Admin)
 
-moran_test <- moran.test(df1_sf_clean$monthsantibodytest, lw)
-print(moran_test)
-
-
-geary_test <- geary.test(df1_sf_clean$monthsantibodytest, lw)
-print(geary_test)
+merged_df <- df1 %>% left_join(data_facilities, by = c("subcounty"= "Admin1"))
 
 
-#define the formula
-
-formula <- monthsantibodytest ~ ancattendance + haartduringpregnancy + whodiseasestage + num_anc_visits
+head(merged_df)
 
 
-str(df1_sf_clean)
-summary(df1_sf_clean)
+colnames(merged_df)
+merged_df <- merged_df %>% filter(!is.na(Lat) & !is.na(Long) & !is.na(monthsantibodytest))
 
-df1_sf_clean <- na.omit(df1_sf_clean)
+merged_df$Lat <- as.numeric(merged_df$Lat)
+merged_df$Long <- as.numeric(merged_df$Long)
 
-colnames(df1_sf_clean)
+merged_df$hiv_antigen_positive <- ifelse(merged_df$monthsantibodytest == "positive",1,0)
 
-dim("W")
-
-nrow(df1_sf_clean)
-
-W <- as.matrix(nb2mat(nb))  
-dim(W) 
+y = as.numeric(merged_df$hiv_antigen_positive)
 
 
-nb <- poly2nb(df1_sf_clean)
-W <- nb2mat(nb, style = "B") 
+coords <- as.matrix(merged_df[,c("Long","Lat")])
+nb <- nb <- knn2nb(knearneigh(coords, k = 3))
 
 
-print(nb)
+
+```{r Create spatial weights}
+
+lw <- nb2listw(nb, style = "W")
+
+```
+
+```{r Compute Moran's I}
+
+moran_test <- moran.test(y, lw)
+```
+```{r}
+print(moran.test)
+```
+
+```{r Convert data to spatial format for mapping}
+
+merged_sf <- st_as_sf(merged_df, coords = c("Long", "Lat"), crs = 4326)
+
+```
+
+```{r  Plot density map of HIV antigen positivity}
+
+tmap_mode("view")
+tm_shape(merged_sf) + 
+  tm_dots(col = "hiv_antigen_positivity", palette = "Reds", size = 0.1, title = "HIV Antigen Positivity") +
+  tm_layout(title = "Density Map of Spatial Autocorrelation - Homa Bay")
+```
 
 
-print(family)
-print(class(family))
-
-family <- "poisson"  # Explicitly define it
 
 
-bayesian_model <- S.CARleroux(
-  formula = formula, 
-  data = df1_sf, 
-  family = "poisson", 
-  W = as.matrix(nb2mat(nb)), 
-  burnin = 1000, 
-  n.sample = 10000, 
-  thin = 10, 
-  n.chains = 1, 
-  n.cores = 1, 
-  prior.mean.beta = 0, 
-  prior.var.beta = 10, 
-  prior.tau2 = c(1, 1), 
-  rho = 1, 
-  MALA = FALSE, 
-  verbose = TRUE
+
+```{r, machine learning}
+```
+
+# Convert target variable to factor
+df1$monthsantibodytest <- as.factor(df1$monthsantibodytest)
+
+# Define independent variables
+independent_vars <- c("age", "weightkg", "bwtkgs", "babywt6wks", "maritalstatus",
+                      "residence", "employmentstatus", "ancattendance", "facilitylevelanc",
+                      "educationlevel", "adherence")
+
+# Convert categorical variables to factors (excluding numeric ones)
+categorical_vars <- c("maritalstatus", "residence", "employmentstatus", 
+                      "ancattendance", "facilitylevelanc", "educationlevel", "adherence")
+
+df1[categorical_vars] <- lapply(df1[categorical_vars], as.factor)
+
+# Ensure numeric variables are correctly typed
+numeric_vars <- c("age", "weightkg", "bwtkgs", "babywt6wks")
+df1[numeric_vars] <- lapply(df1[numeric_vars], as.numeric)
+
+# Split data into training and testing sets
+set.seed(123)
+trainIndex <- createDataPartition(df1$monthsantibodytest, p = 0.8, list = FALSE)
+trainData <- df1[trainIndex, ]
+testData <- df1[-trainIndex, ]  # Fixed: Corrected from 'data' to 'df1'
+
+# Ensure categorical variables in testData match levels in trainData
+for (var in categorical_vars) {
+  testData[[var]] <- factor(testData[[var]], levels = levels(trainData[[var]]))
+}
+
+# Ensure numeric variables remain numeric
+testData[numeric_vars] <- lapply(testData[numeric_vars], as.numeric)
+
+# Train logistic regression model
+model <- glm(monthsantibodytest ~ ., 
+             data = trainData[, c(independent_vars, "monthsantibodytest")], 
+             family = binomial)
+
+# Summary of the model
+summary(model)
+
+# Predict on the test set
+predictions <- predict(model, newdata = testData[, independent_vars], type = "response")
+
+# Print first few predictions
+head(predictions)
+
+class_predictions <- ifelse(predictions >= 0.5, 1, 0)
+head(class_predictions)
+
+# Convert actual test labels to numeric
+actual_values <- as.numeric(as.character(testData$monthsantibodytest))
+
+# Create a confusion matrix
+conf_matrix <- confusionMatrix(as.factor(class_predictions), as.factor(actual_values))
+
+# Print accuracy
+accuracy <- conf_matrix$overall["Accuracy"]
+print(paste("Model Accuracy:", round(accuracy, 4)))
+
+
+# Create a data frame with actual vs predicted values
+plot_data <- data.frame(
+  Actual = actual_values,
+  Predicted_Prob = predictions
 )
 
+# Plot actual vs predicted values
+ggplot(plot_data, aes(x = Actual, y = Predicted_Prob, color = Predicted_Prob > 0.8)) +
+  geom_jitter(width = 0.2, height = 0.02, alpha = 0.7, size = 2) +
+  scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+  labs(title = "Test vs Predicted Probabilities", x = "Actual Values", y = "Predicted Probability") +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 
-summary(bayesian_model)
 
-
-
-bayesian_model <- S.CARleroux(formula=formula, data=df1_sf_clean, family="poisson", W=as.matrix(nb2mat(nb)))
-summary(bayesian_model)
 
