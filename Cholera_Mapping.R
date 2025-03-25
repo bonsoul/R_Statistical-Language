@@ -31,18 +31,22 @@ colnames(sub_county)
 
 data$Age <- -as.numeric(data$Age)
 
+
+# Remove negative or NA values
 data <- data %>%
+  filter(!is.na(Age) & Age >= 0) %>%
   mutate(Age_Group = cut(Age, 
                          breaks = seq(0, 100, by = 10), 
                          labels = paste0(seq(0, 90, by = 10), "-", seq(9, 99, by = 10)), 
                          right = FALSE))
 
-print(table(df$Age_Group))
+# Print age group counts
+print(table(data$Age_Group))
 
 
 # Count the number of cases per age group
 
-age_distribution <- df %>%
+age_distribution <- data %>%
   group_by(Age_Group) %>%
   summarise(Count = n()) %>%
   arrange(Age_Group)
@@ -51,7 +55,7 @@ age_distribution <- df %>%
 print(age_distribution)
   
   # Plot histogram with grouped age ranges
-  ggplot(data, aes(x = AgeGroup)) +
+  ggplot(data, aes(x = Age_Group)) +
     geom_bar(fill = "green") +
     labs(title = "Age Distribution", x = "Age Range", y = "Frequency") +
     theme_minimal()
@@ -59,9 +63,7 @@ print(age_distribution)
 
 
 
-#unique entries in Data
 
-unique(data$`Sub County`)
 
 #checking duplicates
 
@@ -97,9 +99,33 @@ kable(cholera_case_county, caption = "Cholera Cases per County")
 kable(cholera_case_county, caption = "Cholera Cases Per County") %>%
   kable_styling(bootstrap_options = c("striped", "hover","condensed","responsive"), full_width = FALSE)
 
+# Ensure Date.Of.Onset is in Date format
+data <- data %>%
+  mutate(`Date Of Onset` = as.Date(`Date Of Onset`, format="%d/%m/%Y"),
+         Year = format(`Date Of Onset`, "%Y"))
+
+
+# Aggregate cases per year
+yearly_cases <- data %>%
+  group_by(Year) %>%
+  summarise(Cases = n()) %>%
+  mutate(Year = as.numeric(Year)) %>%  # Convert Year to numeric
+  filter(Year >= 2008 & Year <= 2024)  # Filter years from 2008 to 2024
+
+# Plot the trend of cases over the years
+
+ggplot(yearly_cases, aes(x = Year, y = Cases)) +
+  geom_line(color = "blue", size = 1) +  # Line graph
+  geom_point(color = "red", size = 2) +  # Add points for each year
+  labs(title = "Trend of Cases (2008 - 2024)",
+       x = "Year",
+       y = "Number of Cases") +
+  theme_minimal()
+
 
 
 # Function to plot cholera cases map
+
 plotCholeraMap <- function(cholera_map) {
   
   # Define bins for classification
@@ -171,30 +197,22 @@ plotCholeraMapForDS <- function(dataset) {
 plotCholeraMapForDS(data)
 
 
+
+
 #sub county
 
 colnames(data)
-# Convert column names for consistency
-data$`Sub County` <- as.character(data$`Sub County`)
 
 
+#rename the column
+df1 <- data %>% rename(SubCounty = 'Sub-County')
 
-cholera_case_subcounty <- data %>% 
-  group_by(County,Sub County) %>%
+colnames(df1)
+
+cholera_case_subcounty <- df1 %>% 
+  group_by(County,SubCounty) %>%
   summarise(Cholera_Case = n(), .groups = "drop")
-
-data <- data %>%
-  rename(Sub_County = `Sub County`)
-
-cholera_case_subcounty <- data %>% 
-  group_by(County, Sub_County)
-
   
-cholera_case_subcounty <- data %>%
-  group_by(County, Sub_County) %>%
-  summarise(Cholera_Cases = n()) %>%
-  arrange(desc(Cholera_Cases)) # Sorting in descending order
-
 # Display as a table
 kable(cholera_case_subcounty, caption = "Cholera Cases per Sub County") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
@@ -229,7 +247,7 @@ plotCholeraMapBySubCounty <- function(selected_county, dataset, shapefile_path) 
   # Filter dataset for the selected county
   cholera_cases_by_subcounty <- dataset %>%
     filter(County == selected_county) %>%
-    group_by(Sub_County) %>%
+    group_by(SubCounty) %>%
     summarise(Cholera_Cases = n(), .groups = "drop")
   
   # Perform the left join
