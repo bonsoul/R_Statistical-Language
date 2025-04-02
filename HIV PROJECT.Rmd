@@ -7,10 +7,11 @@ output: html_document
 
 
 ```{r setup, include=TRUE , warning=FALSE}
-knitr::opts_chunk$set(echo = TRUE)  
+knitr::opts_chunk$set(echo = FALSE)  
+```
 
  
-
+```{r,libraries}
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(CARBayes)

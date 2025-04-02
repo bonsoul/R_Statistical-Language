@@ -5,6 +5,8 @@ date: "2025-02-26"
 output: html_document
 ---
 
+install.packages("maditr")
+install.packages("expss")
 
 ```{r setup, include=TRUE , warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)  
