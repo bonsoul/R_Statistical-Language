@@ -15,6 +15,10 @@ library(forecast)
 library(tidyverse)
 library(rsconnect)
 
+rsconnect::setAccountInfo(name='8x1lwo-arani-bosire',
+                          token='4DE343CF01EB9381DFCD3F32321D4568',
+                          secret='IJPpO6NlM3v/FWP7OSzJG2EfiMVbx8MFoJD5epar')
+
 
 df <- read.csv("D:/Downloads/1chorela_cases_dataset.csv")
 
@@ -49,7 +53,8 @@ library(dplyr)
 
 # Load dataset (ensure this file is in your working directory)
 df <- read.csv(("D:/Downloads/1chorela_cases_dataset.csv"), stringsAsFactors = FALSE)
-county <- st_read("D:/Downloads/extracted/County.shp")
+county <- st_read("C:/Users/pc/Documents/R Studio/R_Statistical-Language/Cholera_Analysis/shapefiles/County.shp")
+
 
 
 df1 <- df %>%
@@ -104,7 +109,7 @@ ui <- fluidPage(
         tabPanel("Forecasting",fluidRow(column(10,plotOutput("forecast_plot", height = "80vh")))
         ),
         tabPanel("Cholera Map", fluidRow(column(10,leafletOutput("cholera_map", height = "80vh")))
-        ),
+        )
       )
     )
   )
@@ -229,7 +234,8 @@ server <- function(input, output) {
   
   # Leaflet Cholera Map
   output$cholera_map <- renderLeaflet({
-    cholera_map <- st_read("D:/Downloads/extracted/County.shp")
+    cholera_map <- st_read("C:/Users/pc/Documents/R Studio/R_Statistical-Language/Cholera_Analysis/shapefiles/County.shp")
+
     
     cholera_cases_by_county <- filtered_data() %>%
       group_by(County) %>%
@@ -282,5 +288,10 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-rsconnect::deployApp('D:/Downloads/CholeraDashboard')
+
+
+setwd("C:/Users/pc/Documents/R Studio/R_Statistical-Language/Cholera_Analysis")
+shiny::runApp()
+
+
 
