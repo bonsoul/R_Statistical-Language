@@ -21,9 +21,10 @@ colnames(data)
 #reading shape files
 file.exists("D:\\Downloads\\County_shapefile\\County.shp")
 
-sub_county <- st_read("D:\\Downloads\\County_shapefile\\County.shp")
+sub_county <- st_read("C:\\Users\\pc\\Desktop\\Counties Shape File\\ke_subcounty.shp")
 
 print(sub_county)
+
 
 colnames(sub_county)
 #eda
@@ -129,7 +130,9 @@ ggplot(yearly_cases, aes(x = Year, y = Cases)) +
 plotCholeraMap <- function(cholera_map) {
   
   # Define bins for classification
-  bins = c(0, 10, 50, 100, 200, 500, 1000, max(cholera_map$Cholera_Cases, na.rm = TRUE))
+  #bins = c(0, 10, 50, 100, 200, 500, 1000, max(cholera_map$Cholera_Cases, na.rm = TRUE))
+  bins = unique(c(0, 10, 50, 100, 200, 500, 1000, max(cholera_map$Cholera_Cases, na.rm = TRUE)))
+  
   
   # Define color palette
   pal = colorBin("YlOrRd", domain = cholera_map$Cholera_Cases, bins = bins)
@@ -173,7 +176,7 @@ plotCholeraMap <- function(cholera_map) {
 # Function to process data and plot cholera cases
 plotCholeraMapForDS <- function(dataset) {
   # Read shapefile
-  cholera_map <- st_read("D:/Downloads/extracted/County.shp")
+  cholera_map <- st_read("D:/Downloads/archive(6)/County.shp")
   
   # Convert COUNTY column to character
   cholera_map$COUNTY <- as.character(cholera_map$COUNTY)
@@ -299,7 +302,7 @@ plotCholeraMapBySubCounty <- function(selected_county, dataset, shapefile_path) 
 }
 
 # Create a Shiny app for interactive county selection
-shinyApp(
+#shinyApp(
   ui = fluidPage(
     titlePanel("Cholera Cases by Sub-County"),
     sidebarLayout(
@@ -313,7 +316,7 @@ shinyApp(
   ),
   server = function(input, output) {
     output$cholera_map <- renderLeaflet({
-      plotCholeraMapBySubCounty(input$selected_county, data, "D:/Downloads/extracted/SubCounty.shp")
+      plotCholeraMapBySubCounty(input$selected_county, data, "C:\\Users\\pc\\Desktop\\Counties Shape File\\ke_subcounty.shp")
     })
   }
 )
