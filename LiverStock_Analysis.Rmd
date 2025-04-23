@@ -1,0 +1,108 @@
+---
+title: "LiveStock_Analysis"
+author: "Bonsoul"
+date: "2025-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r cars}
+library(readxl)
+library(tidyverse)
+library(janitor)
+library(dplyr)
+```
+
+
+```{r pressure, echo=FALSE}
+population_df <- read_csv("Livestock statistics 2023.csv")
+prices_df <- read_csv("Liverstock_Product Price.csv")
+```
+
+
+```{r,cleaning}
+View(population_df)
+View(prices_df)
+```
+
+```{r,cleaning}
+
+population_df <- population_df %>% clean_names()
+prices_df <- prices_df %>% clean_names()
+
+str(population_df)
+summary(population_df)
+colSums(is.na(population_df)) 
+
+
+str(prices_df)
+summary(prices_df)
+colSums(is.na(prices_df))
+
+```
+
+
+```{r,calculate the % of NAs}
+# Function to calculate percentage of NAs
+na_percent <- function(df) {
+  sapply(df, function(x) round(sum(is.na(x)) / length(x) * 100, 2))
+}
+
+# For livestock population data
+population_na_pct <- na_percent(population_df)
+print("Missing values in livestock_population:")
+print(population_na_pct[population_na_pct > 0])
+
+# For livestock product prices and value
+prices_na_pct <- na_percent(prices_df)
+print("Missing values in Livestock_product price& value:")
+print(prices_na_pct[prices_na_pct > 0])
+
+```
+
+```{r,drop and fill columns}
+population_df1 <- population_df[, colMeans(is.na(population_df)) < 1]
+
+# Optional: Check that it's clean now
+cat("Missing values after cleaning:\n")
+cat("population_df:", sum(is.na(population_df1)), "NAs\n")
+cat("prices_df:", sum(is.na(prices_df)), "NAs\n")
+
+```
+
+
+```{r,data type}
+sapply(population_df1, class)
+sapply(prices_df, class)
+
+```
+
+```{r,convert column}
+# Convert all character columns (except 'County') to numeric
+population_df2 <- population_df1 %>%
+  mutate(across(-county, ~ as.numeric(.), .names = "{.col}"))
+
+# Check the column types after conversion
+str(population_df)
+
+
+# Convert all character columns (except 'County') to numeric
+prices_df1 <- prices_df %>%
+  mutate(across(-county, ~ as.numeric(.), .names = "{.col}"))
+
+# Check the column types after conversion
+str(prices_df1)
+```
+
+
+```{r,clean up}
+population_df3 <- population_df2 %>%
+  mutate(across(!all_of("county"), ~replace_na(., 0)))
+
+View(population_df3)
+```
