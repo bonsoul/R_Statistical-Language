@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 
@@ -16,6 +16,9 @@ library(readxl)
 library(tidyverse)
 library(janitor)
 library(dplyr)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
 ```
 
 
@@ -104,5 +107,141 @@ str(prices_df1)
 population_df3 <- population_df2 %>%
   mutate(across(!all_of("county"), ~replace_na(., 0)))
 
-View(population_df3)
+
+prices_df2 <- prices_df1 %>%
+  mutate(across(!all_of("county"), ~replace_na(., 0)))
+
+
+View(prices_df2)
 ```
+
+```{r,Summary Statistics}
+# Create summary stats
+summary_stats <- population_df3 %>%
+  summarise(across(
+    where(is.numeric),
+    list(
+      mean = \(x) mean(x, na.rm = TRUE),
+      median = \(x) median(x, na.rm = TRUE),
+      max = \(x) max(x, na.rm = TRUE)
+    )
+  ))
+
+# Transpose and clean it
+summary_transposed <- as.data.frame(t(summary_stats))
+colnames(summary_transposed) <- "Value"
+summary_transposed$Statistic <- rownames(summary_transposed)
+rownames(summary_transposed) <- NULL
+summary_transposed <- summary_transposed[, c("Statistic", "Value")]
+
+# Print as table
+kable(summary_transposed, caption = "Summary Statistics for Livestock Data")
+```
+
+```{r,prices}
+
+# Create summary stats
+summary_stats2 <- prices_df2 %>%
+  summarise(across(
+    where(is.numeric),
+    list(
+      mean = \(x) mean(x, na.rm = TRUE),
+      median = \(x) median(x, na.rm = TRUE),
+      max = \(x) max(x, na.rm = TRUE)
+    )
+  ))
+
+# Transpose and clean it
+summary_transposed <- as.data.frame(t(summary_stats2))
+colnames(summary_transposed) <- "Value"
+summary_transposed$Statistic <- rownames(summary_transposed)
+rownames(summary_transposed) <- NULL
+summary_transposed <- summary_transposed[, c("Statistic", "Value")]
+
+# Print as table
+kable(summary_transposed, caption = "Summary Statistics for Livestock Data")
+```
+
+```{r,prices}
+# Get top 10 counties by dairy cattle population
+top_dairy <- population_df3 %>%
+  arrange(desc(cattle_dairy)) %>%
+  select(county, cattle_dairy) %>%
+  head(10)
+
+# Display table with white layout
+top_dairy %>%
+  kable(caption = "Top 10 Counties by Dairy Cattle Population") %>%
+  kable_styling(
+    bootstrap_options = c("hover", "condensed", "responsive"),
+    full_width = FALSE,
+    font_size = 14,
+    position = "center"
+  ) %>%
+  row_spec(0, bold = TRUE, color = "black", background = "white") %>%
+  row_spec(1:10, background = "white", color = "black")
+```
+
+
+
+```{r,bar plot}
+# Plot horizontal bar chart
+ggplot(top_dairy, aes(x = reorder(county, cattle_dairy), y = cattle_dairy)) +
+  geom_bar(stat = "identity", fill = "#2c7fb8") +
+  coord_flip() +
+  geom_text(aes(label = cattle_dairy), hjust = -0.1, color = "black", size = 4) +  # value labels
+  labs(
+    title = "Top 10 Counties by Dairy Cattle Population",
+    x = "County",
+    y = "Number of Dairy Cattle"
+  ) +
+  theme_minimal(base_size = 14) +  # increase base font
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    axis.text.y = element_text(face = "bold", color = "black", size = 12),
+    axis.text.x = element_text(color = "black"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+```{r,dairy}
+top_value <- prices_df2 %>%
+  select(county, milk_kg) %>%
+  arrange(desc(milk_kg)) %>%
+  head(10)
+
+print(top_value)
+
+```
+
+
+
+```{r,plots}
+ggplot(top_value, aes(x = reorder(county, milk_kg
+```
+
+```{r, bar plot}
+# Plot horizontal bar chart
+ggplot(top_value, aes(x = reorder(county, milk_kg), y = milk_kg)) +
+  geom_bar(stat = "identity", fill = "#2c7fb8") +
+  coord_flip() +
+  geom_text(aes(label = cattle_dairy), hjust = -0.1, color = "black", size = 4) +  # value labels
+  labs(
+    title = "Top 10 Counties by Dairy Cattle Population",
+    x = "County",
+    y = "Number of Dairy Cattle"
+  ) +
+  theme_minimal(base_size = 14) +  # increase base font
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    axis.text.y = element_text(face = "bold", color = "black", size = 12),
+    axis.text.x = element_text(color = "black"),
+    panel.grid.major.y = element_blank()
+  
+```
+
+
+
+```{r,plot}
+
+````
