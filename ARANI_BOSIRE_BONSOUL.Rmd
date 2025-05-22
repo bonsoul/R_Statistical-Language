@@ -1,0 +1,515 @@
+---
+title: "Analysis of HIV Data and Poverty Metrics"
+author: "Bonsoul"
+output: html_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#The Assignment
+#Global HIV Trend: Visualize HIV case trends in countries contributing to 75% of the global burden.
+
+#Regional HIV Trend: Visualize HIV case trends in countries contributing to 75% of the burden within each WHO region.
+
+#Poverty-HIV Analysis: Merge HIV and World Bank multidimensional poverty data, then analyze the relationship between HIV prevalence and multidimensional poverty (including individual components), accounting for random effects by country and year.
+
+```{r, Load necessary libraries}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(sf)
+library(lme4)
+library(Matrix)
+library(nlme)
+library(corrplot)
+```
+
+```{r, load the dataset}
+hiv_data <- read.csv("Data/HIV data 2000-2023.csv", encoding = "ISO-8859-1")
+poverty_data <- read.csv("Data/multidimensional_poverty.csv", encoding = "ISO-8859-1")
+```
+
+```{r,data cleaning}
+clean_hiv_value <- function(value) {
+  value <- trimws(value)
+  
+  # Handle missing data cases
+  if (value %in% c("Nodata", "<100") || value == "") {
+    return(NA)
+  }
+  
+  # If the value starts with a number before any brackets
+  if (grepl("^\\d", value)) {
+    clean_value <- gsub("[^0-9]", "", sub("\\s*\\[.*\\]", "", value))
+    return(as.numeric(clean_value))
+  }
+  
+  # If it only contains brackets
+  if (grepl("\\[.*\\]", value)) {
+    range_str <- sub(".*\\[(\\d+[\\d,]*)\\s*-\\s*(\\d+[\\d,]*)\\].*", "\\1,\\2", value)
+    range_values <- as.numeric(gsub("[^0-9]", "", strsplit(range_str, ",")[[1]]))
+    if (length(range_values) == 2 && !any(is.na(range_values))) {
+      return(mean(range_values, na.rm = TRUE))
+    } else {
+      return(NA)
+    }
+  }
+  
+  return(NA)
+}
+
+# Apply the cleaning function to the HIV data
+hiv_data$CleanedValue <- sapply(hiv_data$Value, clean_hiv_value)
+
+
+head(hiv_data[, c("Indicator", "Location", "Period", "Value", "CleanedValue")])
+```
+
+```{r,HIV cases globally}
+# Calculate the total HIV cases globally
+total_hiv_cases <- sum(hiv_data$CleanedValue, na.rm = TRUE)
+
+# Calculate the cumulative sum
+hiv_data_country_sum <- hiv_data %>%
+  group_by(Location) %>%
+  summarise(total_hiv = sum(CleanedValue, na.rm = TRUE)) %>%
+  arrange(desc(total_hiv)) %>%
+  mutate(cumulative_sum = cumsum(total_hiv), cumulative_percentage = 100 * cumulative_sum / total_hiv_cases)
+
+# Filter the countries contributing to 75% of the global burden
+countries_75_percent <- hiv_data_country_sum %>%
+  filter(cumulative_percentage <= 75) %>%
+  pull(Location)
+
+# Filter the merged dataset to include only the selected countries
+hiv_data_75_percent <- hiv_data %>%
+  filter(Location %in% countries_75_percent)
+```
+
+```{r, Plot the trend}
+# Plot the trend of HIV cases over time for countries contributing to 75% of the global burden
+ggplot(hiv_data_75_percent, aes(x = Period, y = CleanedValue, color = Location, group = Location)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(
+    title = "Trend of HIV Cases in Countries Contributing to 75% of the Global Burden (2000-2023)",
+    x = "Year",
+    y = "HIV Cases (Estimated)",
+    color = "Countries"   
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "right")
+```
+
+#Key Observations:
+
+
+#South Africa has the highest estimated HIV cases, rising from approximately 4 million in 2000 to nearly 8 million in 2021. This reflects a consistently increasing trend, indicating a significant public health burden.
+
+#Nigeria and Mozambique show notable increases in HIV cases, though not as steep as South Africa. By 2021, both countries are approaching or exceeding 2 million estimated cases.
+
+#Countries like Ethiopia, Kenya, Zimbabwe, and Thailand show either a plateau or slight decline in HIV cases over time, suggesting progress in managing the epidemic or slower growth in new infections.
+
+#Uganda, Zambia, and the United Republic of Tanzania have moderate but steady increases in HIV cases, indicating ongoing transmission but potentially better access to care and surveillance.
+
+#Countries like Côte d'Ivoire, Malawi, and the Democratic Republic of the Congo have comparatively lower case estimates, though their trends are relatively flat or slowly increasing.
+        
+        
+
+```{r,Regions Trend}
+
+# Calculate cumulative contribution within each WHO region
+hiv_top75 <- hiv_data %>%
+  group_by(ParentLocationCode, Location) %>%
+  summarise(total_cases = sum(CleanedValue, na.rm = TRUE)) %>%
+  arrange(ParentLocationCode, desc(total_cases)) %>%
+  group_by(ParentLocationCode) %>%
+  mutate(cum_percent = cumsum(total_cases) / sum(total_cases)) %>%
+  filter(cum_percent <= 0.75)
+
+
+#Filter original dataset to only keep top 75% countries
+hiv_data_top75 <- hiv_data %>%
+  filter(Location %in% hiv_top75$Location)
+
+
+hiv_data_top75_clean <- hiv_data_top75 %>% 
+  filter(!is.na(CleanedValue)) 
+
+
+
+# Step 3: Plot the trend
+ggplot(hiv_data_top75_clean, aes(x = Period, y = CleanedValue, color = Location, group = Location)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ParentLocationCode) +  # one plot per WHO region
+  theme_minimal() +
+  labs(
+    title = "Trend of HIV Cases (Top 75% Countries by WHO Region)",
+    x = "Year",
+    y = "HIV Cases (Estimated)",
+    color = "Country"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "right")
+```
+
+#1. AFR (Africa Region)
+
+#This region shows the highest number of HIV cases, particularly in countries like South Africa, Nigeria, Mozambique, Zambia, Uganda, Zimbabwe, and the United Republic of Tanzania.The trend is steadily increasing or stabilizing at a high level, indicating a sustained burden.
+
+#2. AMR (Americas Region)
+
+#Countries like Brazil, Mexico, Argentina, Colombia, and Venezuela show lower HIV case numbers compared to Africa.Trends are relatively stable with minor increases over time.
+
+#3. EMR (Eastern Mediterranean Region)
+
+#Includes countries like Iran, Egypt, and Pakistan, showing low and stable case counts over time.
+
+#4. EUR (European Region)
+
+#Countries like Russia, Ukraine, and Portugal have moderate case counts.Ukraine shows a notable upward trend, while other countries remain stable.
+
+#5. SEAR (South-East Asia Region)
+
+#Includes India, Indonesia, and Thailand.India stands out with higher cases, though growth appears to plateau.
+
+#6. WPR (Western Pacific Region)
+
+#Countries such as China, Vietnam, and the Philippines show moderate to low case numbers.Slight increases are visible, but the overall burden is much less than in Africa.
+
+
+```{r,Clean and Merge the data}
+# Clean the HIV data by selecting relevant columns
+hiv_data_clean <- hiv_data %>% 
+  select(Location, Period, CleanedValue) %>%
+  rename(Country = Location)  # Rename 'Location' to 'Country'
+
+# Clean the poverty data by selecting relevant columns
+poverty_data_clean <- poverty_data %>% 
+  select(Economy, Reporting.Year, Poverty.Headcount.Ratio, 
+         Educational.Attainment, Educational.Enrollment, 
+         Electricity, Sanitation, Drinking.Water) %>%
+  rename(Country = Economy)  # Rename 'Economy' to 'Country'
+
+# Replace all NA values with 0 for the entire poverty dataset
+poverty_data_clean1 <- poverty_data_clean %>%
+  replace_na(list(
+    Poverty.Headcount.Ratio = 0,
+    Educational.Attainment = 0,
+    Educational.Enrollment = 0,
+    Electricity = 0,
+    Sanitation = 0,
+    Drinking.Water = 0
+  ))
+
+# Perform the left join using the renamed 'Country' column
+hiv_poverty_merged1 <- hiv_data_clean %>%
+  left_join(poverty_data_clean1, by = c("Country"))
+
+# Check the result
+head(hiv_poverty_merged1)
+
+# Remove rows with missing values in the relevant columns
+hiv_poverty_merged_clean <- hiv_poverty_merged1 %>%
+  filter(!is.na(CleanedValue) & !is.na(Poverty.Headcount.Ratio) & 
+           !is.na(Educational.Attainment) & !is.na(Educational.Enrollment) &
+           !is.na(Electricity) & !is.na(Sanitation) & !is.na(Drinking.Water))
+
+```
+
+```{r, corr plot}
+# Correlation matrix for continuous variables
+cor_data <- hiv_poverty_merged_clean %>%
+  select(CleanedValue, `Poverty.Headcount.Ratio`, `Educational.Attainment`, 
+         `Educational.Enrollment`, `Electricity`, `Sanitation`, `Drinking.Water`)
+
+cor_matrix <- cor(cor_data, use = "complete.obs")
+
+# Plot the correlation matrix
+corrplot(cor_matrix, method = "circle", type = "upper", tl.col = "black", tl.cex = 0.8, addCoef.col = "red")
+
+```
+
+# Weak positive correlation with Poverty Headcount Ratio (0.41): Suggests that HIV prevalence is moderately associated with higher poverty levels.
+
+#Low correlation with Educational Attainment and Enrollment (0.14 and 0.04): Education factors show little direct correlation with HIV.
+
+#Moderate correlation with basic services:Electricity (0.35),Sanitation (0.31),Drinking Water (0.44)
+
+#poor access to basic services is more closely linked to HIV prevalence than educational measures.
+
+
+#Strong correlations exist among the poverty indicators themselves (all >0.75), especially:Educational Attainment & Enrollment (0.76),Sanitation & Drinking Water (0.86),Electricity & Drinking Water (0.77)
+
+
+```{r,distribution}
+# Distribution of HIV Cases (CleanedValue)
+ggplot(hiv_poverty_merged_clean, aes(x = CleanedValue)) +
+  geom_histogram(binwidth = 100000, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of HIV Cases (Cleaned)", x = "HIV Cases (Cleaned)", y = "Frequency")
+
+# Distribution of Poverty Headcount Ratio
+ggplot(hiv_poverty_merged_clean, aes(x = Poverty.Headcount.Ratio)) +
+  geom_histogram(binwidth = 5, fill = "green", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Poverty Headcount Ratio", x = "Poverty Headcount Ratio", y = "Frequency")
+
+# Distribution of Educational Attainment
+ggplot(hiv_poverty_merged_clean, aes(x = Educational.Attainment)) +
+  geom_histogram(binwidth = 5, fill = "orange", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Educational Attainment", x = "Educational Attainment", y = "Frequency")
+
+# Distribution of Educational Enrollment
+ggplot(hiv_poverty_merged_clean, aes(x = Educational.Enrollment)) +
+  geom_histogram(binwidth = 5, fill = "yellow", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Educational Enrollment", x = "Educational Enrollment", y = "Frequency")
+
+# Distribution of Electricity
+ggplot(hiv_poverty_merged_clean, aes(x = Electricity)) +
+  geom_histogram(binwidth = 5, fill = "red", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Electricity", x = "Electricity", y = "Frequency")
+
+# Distribution of Sanitation
+ggplot(hiv_poverty_merged_clean, aes(x = Sanitation)) +
+  geom_histogram(binwidth = 5, fill = "purple", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Sanitation", x = "Sanitation", y = "Frequency")
+
+# Distribution of Drinking Water
+ggplot(hiv_poverty_merged_clean, aes(x = Drinking.Water)) +
+  geom_histogram(binwidth = 5, fill = "brown", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Drinking Water", x = "Drinking Water", y = "Frequency")
+
+```
+
+
+
+```{r, model}
+
+model <- lme(CleanedValue ~ Poverty.Headcount.Ratio + Educational.Attainment + 
+               Educational.Enrollment + Electricity + Sanitation + Drinking.Water,
+             random = ~ 1 | Country/Period, 
+             data = hiv_poverty_merged_clean)
+
+summary(model)
+```
+#Findings
+
+#Country-level variability is substantial (StdDev = 245,963.7), indicating that HIV levels differ significantly across countries.
+
+#Period within country (i.e., year-to-year variation within a country) also shows non-trivial variability (StdDev = 56,052.1), as does the residual (35,763.85).
+
+#Electricity vs. Poverty Headcount Ratio (-0.799): Areas with more electricity access tend to have much lower poverty.
+
+#Educational Enrollment vs. Attainment (-0.495): Overlap is expected, but should be monitored for multicollinearity.
+
+#Poverty Headcount Ratio is likely a significant positive predictor of HIV cases, aligning with your earlier correlation matrix (0.41).
+
+#Electricity, Sanitation, and Drinking Water may be meaningful contributors, given their moderate correlations with HIV.
+
+#Education seems to have weaker associations, especially Educational Enrollment, which had near-zero correlation with HIV cases in earlier analysis.
+
+#mmary of Findings:
+
+#HIV prevalence is significantly affected by country and year-level differences, as shown by the large random effect variances.
+
+#Poverty and infrastructure (electricity, water, sanitation) appear to have stronger influence on HIV prevalence.
+
+#Education is less clearly related, and potentially impacted by multicollinearity.
+
+
+
+# Question2
+
+#You have been provided with data on the under-five mortality rate and neonatal mortality rate for the African region, which has been downloaded from the UN Inter-agency Group for Child Mortality Estimation. Your task is to:
+#Filter data for the eight countries belonging to the East African Community (list here: https://www.eac.int/overview-of-eac) 
+#Visualize the latest estimate of each indicator at the country level using shapefiles, which can be downloaded from www.gadm.org. 
+#Show the average trends in the mortality rates over time (plot the average trend line and add the points in the graphic for the country level estimates for each indicator. Expectation: two plots).
+#Based on your visualizations, identify the countries with the highest under-five mortality rates in East Africa and the highest neonatal mortality.
+
+
+
+```{r,# Read shapefile }
+# shapefile 
+shapefile <- st_read("EA Shape Files/ESA_admin1_region.shp")
+
+# Standardize country names
+shapefile_data <- shapefile %>%
+  mutate(COUNTRY = ifelse(COUNTRY == "Congo DRC", "Democratic Republic of the Congo", COUNTRY))
+
+# East African Community (EAC) countries
+eac_countries <- c("Burundi", "Kenya", "Rwanda", "South Sudan",
+                   "Tanzania", "Uganda", "Somalia", "Democratic Republic of the Congo")
+
+# Filter shapefile for only EAC countries
+eac_shapefile <- shapefile_data %>%
+  filter(COUNTRY %in% eac_countries)
+
+plot(st_geometry(eac_shapefile))
+
+```
+
+```{r,Read mortality data}
+mortality_data1 <- read.csv("Data/dataset_datascience.csv")
+
+
+
+# Renaming Tanzania
+mortality_data <- mortality_data1 %>%
+  mutate(Geographic.area = ifelse(Geographic.area == "United Republic of Tanzania", "Tanzania", Geographic.area))
+
+
+# View basic structure
+str(mortality_data)
+
+# Summary statistics
+summary(mortality_data)
+
+# Check column names
+colnames(mortality_data)
+
+# See first few rows
+head(mortality_data)
+
+# Check for missing values
+colSums(is.na(mortality_data))
+
+```
+
+
+```{r,Merge shapefile with mortality data} 
+# select relevant columns
+mortality_data_filtered <- mortality_data %>%
+  filter(Geographic.area %in% eac_countries) %>%
+  select(Geographic.area, Indicator, Series.Year, Observation.Value)
+
+merged_data <- merge(eac_shapefile, mortality_data_filtered,
+                     by.x = "COUNTRY", by.y = "Geographic.area")
+
+```
+
+
+```{r,Preprocessing}
+# Filter latest data for each indicator
+latest_year <- max(merged_data$Series.Year, na.rm = TRUE)
+
+latest_data_neonatal <- merged_data %>%
+  filter(Indicator == "Neonatal mortality rate", Series.Year == latest_year)
+
+latest_data_under5 <- merged_data %>%
+  filter(Indicator == "Under-five mortality rate", Series.Year == latest_year)
+
+```
+
+```{r,plots Neonatal Mortality Rate}
+# Plot: Latest Neonatal Mortality Rate
+ggplot() +
+  geom_sf(data = eac_shapefile, fill = "white", color = "black") +
+  geom_sf(data = latest_data_neonatal, aes(fill = Observation.Value), color = "black") +
+  scale_fill_viridis_c(name = "Deaths per 1,000") +
+  labs(title = "Latest Neonatal Mortality Rate in EAC Countries") +
+  theme_minimal()
+```
+
+#Key Findings:
+#Highest Neonatal Mortality Rates:
+
+#Countries or regions shaded in yellow to green represent the highest mortality rates, over 50 deaths per 1,000.
+
+#Somalia and parts of South Sudan show the darkest/highest intensity, indicating they face the worst neonatal outcomes in the region.
+
+#Moderate Rates:
+
+#Areas shaded in teal to light blue (e.g., northern Kenya, Ethiopia) have moderate mortality rates, between 30 and 50 deaths per 1,000.
+
+#Lowest Mortality Rates:
+
+#Uganda, Rwanda, Tanzania, and Kenya (especially southern regions) are shaded in dark purple, suggesting lower neonatal mortality, closer to 20 deaths per 1,000.
+
+
+```{r,Under-five Mortality Rate}
+# Plot: Latest Under-five Mortality Rate
+ggplot() +
+  geom_sf(data = eac_shapefile, fill = "white", color = "black") +
+  geom_sf(data = latest_data_under5, aes(fill = Observation.Value), color = "black") +
+  scale_fill_viridis_c(name = "Deaths per 1,000") +
+  labs(title = "Latest Under-five Mortality Rate in EAC Countries") +
+  theme_minimal()
+
+```
+#Key Findings from the Map:
+#High Mortality Rates (Green to Yellow shades – 400 to 600+ deaths/1,000):Northern South Sudan and possibly parts of Somalia show the highest under-five mortality rates.
+
+#These areas are shaded in green to yellow, indicating mortality rates above 400 and possibly over 600 per 1,000 live births — exceptionally high and indicative of a severe public health crisis.
+
+#Moderately High Mortality (Blue-green shades – ~200–400 deaths/1,000):Central and Western South Sudan, Eastern DRC, and northwestern regions of Uganda and Kenya show moderately high rates.
+
+#These regions are shaded in darker teal or green-blue, signaling persistently high child mortality.
+
+#Lower Mortality Rates (Purple shades – below 200 deaths/1,000):
+
+#Rwanda, Kenya (southern and coastal parts), Tanzania, and most of Uganda show lower under-five mortality, shaded in dark purple.
+
+#These areas reflect relatively better child survival rates, likely due to stronger health systems and broader health interventions.
+
+
+```{r, average mortality}
+# Calculate average mortality per country over years
+avg_trends <- mortality_data_filtered %>%
+  group_by(Geographic.area, Indicator, Series.Year) %>%
+  summarize(Average_Value = mean(Observation.Value, na.rm = TRUE), .groups = "drop")
+
+avg_trends
+```
+
+```{r,Neonatal Mortality Trend}
+# Plot: Neonatal Mortality Trend
+ggplot(avg_trends, aes(x = Series.Year, y = Average_Value, color = Indicator)) +
+  geom_line(size = 1.2) +
+  geom_point() +
+  labs(title = "Average Mortality Rate Trends in East Africa",
+       x = "Year", y = "Average Mortality Rate (per 1,000)") +
+  theme_minimal()
+
+```
+
+```{r, Trend for Mortality}
+# Plot: Under-five Mortality Trend
+ggplot(avg_trends %>% filter(Indicator == "Neonatal mortality rate"),
+       aes(x = as.numeric(Series.Year), y = Average_Value, color = Geographic.area)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Neonatal Mortality Rate Trends Over Time",
+       x = "Year", y = "Neonatal Mortality Rate (per 1,000)") +
+  theme_minimal()
+
+```
+#Countries with the Highest Neonatal Mortality Rates (~2020–2022):
+
+#Somalia (light blue line):around 50 deaths per 1,000 live births.
+
+#South Sudan (blue line):Among the top in recent years with a neonatal mortality rate above 40 per 1,000.
+
+#Democratic Republic of the Congo (orange line):Around 35–40 per 1,000 in recent years.
+
+```{r}
+ggplot(avg_trends %>% filter(Indicator == "Under-five mortality rate"),
+       aes(x = as.numeric(Series.Year), y = Average_Value, color = Geographic.area)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Under-Five Mortality Rate Trends Over Time",
+       x = "Year", y = "Under-Five Mortality Rate (per 1,000)") +
+  theme_minimal()
+
+```
+
+#Countries with the Highest Under-Five Mortality Rates (Recent Years:
+
+#Somalia (light blue line):above 200 deaths per 1,000 live births around 2020.
+
+#South Sudan (blue line): above 150–200 deaths per 1,000 around 2020.
+#Democratic Republic of the Congo (orange line):bove 100 deaths per 1,000 live births through to 2020.
+
+
