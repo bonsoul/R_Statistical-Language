@@ -1,0 +1,94 @@
+---
+title: "Untitled"
+author: "Bonsoul"
+date: "2025-05-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,}
+require(pacman)
+library(pacman)
+
+
+pacman::p_load(dplyr, stringr, tidyr, ggplot2, datasets)
+
+```
+
+```{r}
+head(iris)
+```
+
+
+```{r}
+str(iris)
+
+```
+```{r,data types}
+
+
+```
+
+```{r}
+colnames(iris)
+
+```
+
+```{r, standardizing columns}
+colnames(iris) <- tolower(gsub("\\.", "_", colnames(iris)))
+colnames(iris)
+```
+
+```{r, rename the column}
+iris <- iris %>% rename(s_length = sepal_length,s_width=sepal_width,p_length=petal_length,p_width=petal_width)
+
+colnames(iris)
+  
+```
+
+```{r, to seee unique values in a column}
+unique(iris$s_length)
+```
+
+
+```{r, classify variable}
+
+iris$s_length_group <- cut(iris$s_length,
+                           breaks = 3,
+                           labels = c("Short","Medium","Long"))
+
+```
+
+```{r, checking shape}
+dim(iris)
+glimpse(iris)
+
+```
+
+```{r, data types}
+
+#Data Type	Description	Example
+#Numeric	Numbers with decimals (default type for numbers)	4.5, 3.1415
+#Integer	Whole numbers (must be marked with L)	5L, 100L
+#Character	Text or string values	"apple", 'hello'
+#Logical	Boolean values (TRUE or FALSE)	TRUE, FALSE
+#Factor	Categorical data with fixed levels	factor(c("low", "high"))
+
+
+iris$species <- as.character(iris$species)
+```
+
+```{r, summary statics}
+summary(iris)
+```
+
+```{r, missing values}
+sum(is.na(iris))
+colSums(is.na(iris))
+
+any(is.na(iris))
+
+```
