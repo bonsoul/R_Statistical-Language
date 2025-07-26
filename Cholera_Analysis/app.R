@@ -1,5 +1,4 @@
-
-
+library(shinydashboard)
 library(shiny)
 library(ggplot2)
 library(dplyr)
@@ -10,288 +9,290 @@ library(readr)
 library(tidyr)
 library(kableExtra)
 library(htmltools)
-library(shinythemes)
+library(shinyWidgets)
 library(forecast)
 library(tidyverse)
 library(rsconnect)
-
-rsconnect::setAccountInfo(name='8x1lwo-arani-bosire',
-                          token='4DE343CF01EB9381DFCD3F32321D4568',
-                          secret='IJPpO6NlM3v/FWP7OSzJG2EfiMVbx8MFoJD5epar')
-
-
-df <- read.csv("D:/Downloads/1chorela_cases_dataset.csv")
-
-#EDA
-
-any(is.na(data))
-
-sum(is.na(data))
-
-colSums(is.na(df))
-
-unique(df$County)
+library(selectr)
+library(shinythemes)
+library(fontawesome)
+library(ggthemes)
 
 
-
-#duplicates
-duplicated(df)
-
-df[duplicated(df), ]
-
+# Load dataset
+df <- read.csv("Data/1chorela_cases_dataset.csv")
 df <- df %>% distinct()
 
-
+# Fix Date format
 df$Date.Of.Onset <- as.Date(df$Date.Of.Onset, format="%d/%m/%Y")
+df$Year_Onset <- year(df$Date.Of.Onset)
 
+# Filter for years 2008 to 2024
+df <- df %>% filter(Year_Onset >= 2008, Year_Onset <= 2024)
 
-
-library(shiny)
-library(shinythemes)
-library(ggplot2)
-library(dplyr)
-
-# Load dataset (ensure this file is in your working directory)
-df <- read.csv(("D:/Downloads/1chorela_cases_dataset.csv"), stringsAsFactors = FALSE)
-county <- st_read("C:/Users/pc/Documents/R Studio/R_Statistical-Language/Cholera_Analysis/shapefiles/County.shp")
-
-
-
-df1 <- df %>%
+# Standardize County
+df <- df %>%
   mutate(County = case_when(
-    tolower(County) %in% c("murang'a", "muranga", "murang'a") ~ "Muranga",
+    tolower(County) %in% c("murang'a", "muranga") ~ "Muranga",
     tolower(County) %in% c("kajiando", "kajiado") ~ "Kajiado",
     tolower(County) %in% c("trans nzoia", "transnzoia") ~ "Trans-Nzoia",
     tolower(County) %in% c("homa bay", "homabay") ~ "Homa-Bay",
     tolower(County) %in% c("elgeyo marakwet", "elgeyo-marakwet") ~ "Elgeyo-Marakwet",
     tolower(County) %in% c("tharaka nithi", "tharaka-nithi") ~ "Tharaka-Nithi",
     tolower(County) %in% c("tanariver", "tana river") ~ "Tana-River",
-    TRUE ~ County  # Keeps the original value if no match is found
+    TRUE ~ County
   )) %>%
-  filter(County != "Nan")  # Remove rows where County is "Nan"
+  filter(!is.na(County))
 
-
-
-# Define UI for the application
-ui <- fluidPage(
-  theme = shinytheme("cyborg"),  # Fixed theme issue
-  
-  # Application title
-  titlePanel("Cholera Outbreak Dashboard"),
-  
-  # Sidebar layout
-  sidebarLayout(
-    sidebarPanel(
-      sliderInput("year_range", "Select Year Range:", 
-                  min = 2008, 
-                  max = 2024, 
-                  value = c(2008, 2024), 
-                  sep = ""),
-      
-      
-      selectInput("county", "Select County:", 
-                  choices = unique(df1$County), 
-                  selected = unique(df1$County)[1], 
-                  multiple = TRUE)
-    ),
-    
-    # Main panel with tabset
-    mainPanel(
-      tabsetPanel(
-        tabPanel("Epidemic Curve", fluidRow(column(10,plotOutput("trend_plot", height = "80vh")))
-        ),
-        tabPanel("Cases by County", fluidRow(column(10,plotOutput("cases_by_county", height = "80vh"))) 
-        ),
-        tabPanel("Age Distribution", fluidRow(column(10,plotOutput("age_dist", height = "80vh")))
-        ),
-        tabPanel("Gender Distribution",fluidRow(column(10,plotOutput("gender_dist", height = "80vh")))
-        ),
-        tabPanel("Forecasting",fluidRow(column(10,plotOutput("forecast_plot", height = "80vh")))
-        ),
-        tabPanel("Cholera Map", fluidRow(column(10,leafletOutput("cholera_map", height = "80vh")))
-        )
+# UI
+# UI
+ui <- dashboardPage(
+  skin = "blue",
+  dashboardHeader(title = "Cholera Outbreak Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Overview", tabName = "overview", icon = icon("info-circle")),
+      menuItem("Bar Plot", tabName = "Bar_Plot", icon = icon("chart-line")),
+      menuItem("Cases by Year", tabName = "cases_year", icon = icon("calendar")),
+      menuItem("Cases by County", tabName = "cases_county", icon = icon("map-marked-alt")),
+      menuItem("Age Distribution", tabName = "age_dist", icon = icon("user")),
+      menuItem("Gender Distribution", tabName = "gender_dist", icon = icon("venus-mars")),
+      menuItem("Forecasting", tabName = "forecast", icon = icon("chart-bar")),
+      menuItem("Cholera Map", tabName = "map", icon = icon("globe-africa"))
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      tabItem(tabName = "overview",
+              fluidRow(
+                valueBox("52,320", subtitle = "Total Number Of Cases", icon = icon("virus"), color = "red"),
+                valueBox("7,534 Nairobi", subtitle = "Most Affected County", icon = icon("map-marked-alt"), color = "orange"),
+                valueBox("2 Nyeri", subtitle = "Least Affected County", icon = icon("map-pin"), color = "green")
+              ),
+              fluidRow(
+                valueBox("1,046.4", subtitle = "Average Cases per County", icon = icon("balance-scale"), color = "yellow"),
+                valueBox("2023, March", subtitle = "Peak Month", icon = icon("calendar-alt"), color = "maroon"),
+                valueBox("42", subtitle = "Number of Counties Affected", icon = icon("globe-africa"), color = "fuchsia")
+              ),
+              fluidRow(
+                box(
+                  title = span(icon("clipboard-list"), " Analysis Summary"),
+                  width = 12,
+                  solidHeader = TRUE,
+                  background = "black",
+                  HTML('
+      <div style="font-size:16px; line-height:1.7; color: white;">
+        <p><i class="fas fa-info-circle" style="color:#00aced;"></i> <strong style="color:#00aced;">Overview:</strong> This dashboard gives a <span style="color:#1E90FF;">comprehensive view</span> of Cholera outbreaks in <strong>Kenya</strong> from <strong>2008 to 2024</strong>.</p>
+        
+        <p><i class="fas fa-lightbulb" style="color:#32CD32;"></i> <strong style="color:#32CD32;">Key Insights:</strong> Discover trends, the <span style="color:#FF4500;"><strong>most affected</strong></span> and <span style="color:#00FF7F;"><strong>least affected</strong></span> counties, plus demographic breakdowns by <span style="color:#DA70D6;">age</span> and <span style="color:#FF69B4;">gender</span>.</p>
+        
+        <p><i class="fas fa-chart-bar" style="color:#FFA500;"></i> <strong style="color:#FFA500;">Visual Tools:</strong> Explore <strong>epidemic curves</strong>, <strong>forecast models</strong>, and a <strong>dynamic map</strong> to trace outbreak progression in time and space.</p>
+        
+        <p><i class="fas fa-compass" style="color:#BA55D3;"></i> <strong style="color:#BA55D3;">How to Use:</strong> Use the <strong>sidebar menu</strong> to navigate between sections and interact with the data for <span style="color:#87CEEB;">informed insights</span>.</p>
+      </div>
+    ')
+                )
+              )
+              
+              
+              
+      ),
+      tabItem(tabName = "Bar_Plot",
+              fluidRow(
+                box(title = "Cholera Cases per Year", width = 12, plotOutput("bar_plot", height = "70vh"))
+              )
+      ),
+      tabItem(tabName = "cases_year",
+              fluidRow(
+                box(title = "Cases by Year", width = 12, plotOutput("cases_by_year_plot", height = "70vh"))
+              )
+      ),
+      tabItem(tabName = "cases_county",
+              fluidRow(
+                box(title = "Cases by County", width = 12, plotOutput("cases_by_county", height = "70vh"))
+              )
+      ),
+      tabItem(tabName = "age_dist",
+              fluidRow(
+                box(title = "Age Distribution of Cases", width = 12, plotOutput("age_dist", height = "70vh"))
+              )
+      ),
+      tabItem(tabName = "gender_dist",
+              fluidRow(
+                box(title = "Gender Distribution of Cases", width = 12, plotOutput("gender_dist", height = "70vh"))
+              )
+      ),
+      tabItem(tabName = "forecast",
+              fluidRow(
+                box(title = "Forecasting Cholera Cases", width = 12, plotOutput("forecast_plot", height = "70vh"))
+              )
+      ),
+      tabItem(tabName = "map",
+              fluidRow(
+                box(title = "Interactive Cholera Map", width = 12, leafletOutput("cholera_map", height = "80vh"))
+              )
       )
     )
   )
 )
 
 
-# Define server logic
+# Server
 server <- function(input, output) {
   
-  # Reactive dataset based on user input
   filtered_data <- reactive({
     df %>%
-      # Filter the data based on year range and selected counties
-      filter(Year_Onset >= input$year_range[1] & Year_Onset <= input$year_range[2],
-             County %in% input$county) %>%
-      # Standardize the county names
-      mutate(County = case_when(
-        tolower(County) %in% c("Murang'a","Muranga", "muranga","Murang'A") ~ "Muranga",
-        tolower(County) %in% c("kajiando", "Kajiado") ~ "Kajiado",
-        tolower(County) %in% c("Trans Nzoia","Transnzoia") ~ "Trans-Nzoia",
-        tolower(County) %in% c("Homa Bay","Homabay" ) ~ "Homa-Bay",
-        tolower(County) %in% c("Elgeyo Marakwet","Elgeyo-Marakwet" ) ~ "Egeyo-Marakwet",
-        tolower(County) %in% c("Tharaka Nithi","Tharaka-Nithi" ) ~ "Tharaka-Nithi",
-        tolower(County) %in% c("Tanariver","Tana River" ) ~ "Tana-River",
-        TRUE ~ County  # Leaving all other values unchanged
-      )) %>%
-      # Standardize Sex column values
       mutate(Sex = case_when(
         tolower(Sex) %in% c("male", "m", "masculine", "male ") ~ "Male",
         tolower(Sex) %in% c("female", "f", "feminine", "female ") ~ "Female",
-        FALSE ~ NA_character_
+        TRUE ~ NA_character_
       )) %>%
-      # Remove rows with NA in Sex column
       filter(!is.na(Sex))
   })
   
-  
-  # Line graph - Trend Analysis
-  output$trend_plot <- renderPlot({
-    yearly_cases <- filtered_data() %>%
+  yearly_cases <- reactive({
+    filtered_data() %>%
       group_by(Year_Onset) %>%
-      summarise(Cases = n(), .groups = "drop") %>%
-      mutate(Year_Onset = as.numeric(Year_Onset))  # Ensure Year is numeric
-    
-    ggplot(yearly_cases, aes(x = Year_Onset, y = Cases, group = 1)) +
-      geom_line(color = "blue", size = 1) +
-      geom_point(color = "red", size = 2) +
-      labs(title = "Trend Analysis",
-           x = "Year",
-           y = "Number of Cases") +
-      theme_minimal()
-  })
-  
-  # Histogram - filtered_dataEpidemic Curve
-  df$Date <- as.Date(df$Date, format="%Y-%m-%d")
-  
-  output$epi_curve <- renderPlot({
-    ggplot(filtered_data(), aes(x = as.Date(Date))) +
-      geom_histogram(binwidth = 30, fill = "blue", color = "white") +
-      labs(title = "Epidemic Curve",
-           x = "Date",
-           y = "Number of Cases") +
-      theme_minimal()
-  })
-  
-  # Bar Chart - Cases by County
-  output$cases_by_county <- renderPlot({
-    county_cases <- filtered_data() %>%
-      group_by(County) %>%
       summarise(Cases = n(), .groups = "drop")
+  })
+  
+  output$overview_plot <- renderPlot({
+    county_cases <- filtered_data() %>%
+      count(County, sort = TRUE)
     
-    ggplot(county_cases, aes(x = reorder(County, -Cases), y = Cases, fill = County)) +
+    ggplot(county_cases, aes(x = reorder(County, -n), y = n, fill = County)) +
       geom_bar(stat = "identity") +
       coord_flip() +
-      labs(title = "Cases by County",
-           x = "County",
-           y = "Number of Cases") +
+      labs(title = "Cholera Cases by County",
+           x = "County", y = "Cases") +
       theme_minimal()
   })
   
-  # Histogram - Age Distribution
+  output$bar_plot <- renderPlot({
+    filtered_data() %>%
+      mutate(Year = year(Date.Of.Onset)) %>%
+      count(Year) %>%
+      ggplot(aes(y = factor(Year), x = n)) +
+      geom_col(fill = "steelblue") +
+      labs(
+        title = "Cholera Cases per Year",
+        x = "Number of Cases",
+        y = "Year"
+      ) +
+      theme_minimal()
+  })
+  
+  
+  output$cases_by_year_plot <- renderPlot({
+    yearly_data <- yearly_cases()
+    
+    # Ensure all years are present, even if there are no cases in those years
+    all_years <- seq(min(yearly_data$Year_Onset), max(yearly_data$Year_Onset))
+    complete_data <- data.frame(Year_Onset = all_years)
+    yearly_data <- left_join(complete_data, yearly_data, by = "Year_Onset")
+    yearly_data$Cases[is.na(yearly_data$Cases)] <- 0  # Assign 0 for missing cases
+    
+    ggplot(yearly_data, aes(x = Year_Onset, y = Cases)) +
+      geom_line(group = 1, color = "darkred", size = 1.2) +
+      geom_point(size = 4, color = "darkblue", shape = 21, fill = "white") +
+      scale_x_continuous(breaks = all_years) +  # Ensure all years are included in the axis
+      labs(title = "Cholera Cases by Year", x = "Year", y = "Cases") +
+      theme_minimal() +  # Clean minimal theme
+      theme(
+        plot.title = element_text(family = "Arial", size = 16, face = "bold", color = "darkblue", hjust = 0.5),
+        plot.background = element_rect(fill = "#f2f2f2", color = NA),  # Light grey background
+        panel.background = element_rect(fill = "white", color = "gray"),
+        panel.grid.major = element_line(color = "lightgray", size = 0.5),
+        panel.grid.minor = element_line(color = "lightgray", size = 0.2),
+        axis.title = element_text(size = 12, face = "bold", color = "darkblue"),
+        axis.text = element_text(size = 10, color = "black"),
+        axis.ticks = element_line(color = "darkgray")
+      ) +
+      theme(legend.position = "none")  
+  })
+  
+  
+  
+  output$cases_by_county <- renderPlot({
+    county_data <- filtered_data() %>%
+      count(County, sort = TRUE)
+    
+    ggplot(county_data, aes(x = reorder(County, -n), y = n, fill = County)) +
+      geom_bar(stat = "identity") +
+      coord_flip() +
+      labs(title = "Cases by County", x = "County", y = "Cases") +
+      theme_minimal()
+  })
+  
   output$age_dist <- renderPlot({
     ggplot(filtered_data(), aes(x = Age)) +
       geom_histogram(binwidth = 5, fill = "purple", color = "white") +
-      labs(title = "Age Distribution of Cases",
-           x = "Age",
-           y = "Frequency") +
+      labs(title = "Age Distribution", x = "Age", y = "Count") +
       theme_minimal()
   })
   
-  # Bar Chart - Gender Distribution
   output$gender_dist <- renderPlot({
-    gender_cases <- filtered_data() %>%
-      group_by(Sex) %>%
-      summarise(Cases = n(), .groups = "drop")
+    gender_data <- filtered_data() %>%
+      count(Sex)
     
-    ggplot(gender_cases, aes(x = Sex, y = Cases, fill = Sex)) +
+    ggplot(gender_data, aes(x = Sex, y = n, fill = Sex)) +
       geom_bar(stat = "identity") +
-      labs(title = "Gender Distribution of Cases",
-           x = "Gender",
-           y = "Number of Cases") +
+      labs(title = "Gender Distribution", x = "Gender", y = "Cases") +
       theme_minimal()
   })
   
-  # Time Series Model and Forecasting
   output$forecast_plot <- renderPlot({
+    ts_cases <- ts(yearly_cases()$Cases, start = min(yearly_cases()$Year_Onset), frequency = 1)
+    model <- auto.arima(ts_cases)
+    forecasted <- forecast(model, h = 5)
     
-    ts_cases <- ts(yearly_cases$Cases, start = min(yearly_cases$Year), frequency = 1)
-    
-    # Fit ARIMA model
-    arima_model <- auto.arima(ts_cases)
-    
-    # Forecast future cases
-    forecasted_cases <- forecast(arima_model, h = 5)
-    
-    # Plot the forecast
-    autoplot(forecasted_cases) +
-      ggtitle("Cholera Cases Forecast") +
-      xlab("Year") +
-      ylab("Number of Cases")
+    autoplot(forecasted) +
+      labs(title = "Forecasted Cholera Cases", x = "Year", y = "Cases")
   })
   
-  # Leaflet Cholera Map
   output$cholera_map <- renderLeaflet({
-    cholera_map <- st_read("C:/Users/pc/Documents/R Studio/R_Statistical-Language/Cholera_Analysis/shapefiles/County.shp")
-
+    counties <- st_read("Data/County_Shape/County.shp")
     
-    cholera_cases_by_county <- filtered_data() %>%
-      group_by(County) %>%
-      summarise(Cholera_Cases = n())
+    county_cases <- filtered_data() %>%
+      count(County)
     
-    cholera_map <- left_join(cholera_map, cholera_cases_by_county, by = c("COUNTY" = "County"))
-    cholera_map$Cholera_Cases[is.na(cholera_map$Cholera_Cases)] <- 0
+    counties <- counties %>%
+      rename(County = COUNTY) %>%
+      left_join(county_cases, by = "County") %>%
+      mutate(n = ifelse(is.na(n), 0, n))
     
-    # Define bins for classification
-    bins = c(0, 10, 50, 100, 200, 500, 1000, max(cholera_map$Cholera_Cases, na.rm = TRUE))
+    pal <- colorBin("YlOrRd", domain = counties$n, bins = c(0, 10, 50, 100, 200, 500, max(counties$n, na.rm = TRUE)))
     
-    # Define color palette
-    pal = colorBin("YlOrRd", domain = cholera_map$Cholera_Cases, bins = bins)
-    
-    # Define labels for hover text
-    labels = sprintf(
+    labels <- sprintf(
       "<strong>%s</strong><br/>Cholera Cases: %g",
-      cholera_map$COUNTY, cholera_map$Cholera_Cases
-    ) %>% lapply(htmltools::HTML)
+      counties$County, counties$n
+    ) %>% lapply(HTML)
     
-    leaflet(data = cholera_map) %>%
-      setView(lat = -0.0, lng = 36.681660, zoom = 6) %>%
+    leaflet(data = counties) %>%
+      setView(lat = -0.0236, lng = 37.9062, zoom = 6) %>%
       addPolygons(
-        fillColor = ~pal(Cholera_Cases),
+        fillColor = ~pal(n),
         weight = 2,
         opacity = 1,
         color = "white",
         dashArray = "3",
         fillOpacity = 0.7,
         highlight = highlightOptions(
-          weight = 3,
+          weight = 5,
           color = "#666",
-          dashArray = "",
-          fillOpacity = 0.8,
+          fillOpacity = 0.7,
           bringToFront = TRUE
         ),
         label = labels,
         labelOptions = labelOptions(
           style = list("font-weight" = "normal", padding = "3px 8px"),
-          textsize = "15px",
+          textsize = "13px",
           direction = "auto"
         )
       ) %>%
-      addLegend(
-        pal = pal, values = ~Cholera_Cases, opacity = 0.7, title = "Cholera Cases",
-        position = "bottomleft"
-      )
+      addLegend(pal = pal, values = ~n, opacity = 0.7, title = "Cholera Cases", position = "bottomleft")
   })
 }
 
-# Run the application 
+# Run App
 shinyApp(ui = ui, server = server)
-
-
-setwd("C:/Users/pc/Documents/R Studio/R_Statistical-Language/Cholera_Analysis")
-shiny::runApp()
-
-
-

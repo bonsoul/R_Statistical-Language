@@ -1,0 +1,87 @@
+---
+title: "CEMA INTERNSHIP"
+author: "Bonsoul"
+date: "2025-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,libraries}
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(dplyr)
+```
+
+```{r,load the dataset}
+df <- read.csv("D:/Downloads/HIV data 2000-2023.csv")
+```
+
+```{r, EDA}
+df1 <- df %>%
+  mutate(
+    Value_clean = str_extract(Value, "[\\d\\s]+"),
+    Value_clean = as.numeric(gsub("\\s+", "", Value_clean))
+  )
+```
+
+```{r, Filter the data}
+df_countries <- df1 %>%
+  filter(Location.type == "country", !is.na(Value_clean))
+```
+
+```{r, top 75% countries}
+df_2023 <- df_2023 <- df_countries %>% filter(Period == 2023)
+```
+
+```{r, claculate cumulative percentage}
+df_top75 <- df_2023 %>%
+  arrange(desc(Value_clean)) %>%
+  mutate(
+    cumsum = cumsum(Value_clean),
+    cumperc = cumsum / sum(Value_clean)
+  ) %>%
+  filter(cumperc <= 0.75)
+```
+
+```{r,filter entire dataset}
+top_countries <- df_top75$Location
+df_top_trends <- df_countries %>% filter(Location %in% top_countries)
+```
+
+```{r,plot trend}
+ggplot(df_top_trends, aes(x = Period, y = Value_clean, color = Location)) +
+  geom_line() +
+  labs(title = "Trend of HIV Cases in Countries Contributing 75% of Global Burden",
+       y = "Estimated HIV Cases",
+       x = "Year") +
+  theme_minimal()
+```
+
+```{r}
+df_region_plots <- df_countries %>%
+  group_by(ParentLocationCode, Period) %>%
+  mutate(rank_2023 = if_else(Period == 2023, rank(-Value_clean), NA_real_)) %>%
+  group_by(ParentLocationCode, Location) %>%
+  fill(rank_2023, .direction = "downup") %>%
+  ungroup() %>%
+  group_by(ParentLocationCode) %>%
+  arrange(ParentLocationCode, desc(rank_2023)) %>%
+  mutate(cumsum = cumsum(ifelse(Period == 2023, Value_clean, 0)),
+         cumperc = cumsum / sum(ifelse(Period == 2023, Value_clean, 0))) %>%
+  filter(cumperc <= 0.75 | is.na(cumperc)) %>%
+  filter(!is.na(Value_clean))
+```
+
+```{r, trends by WHO region}
+ggplot(df_region_plots, aes(x = Period, y = Value_clean, color = Location)) +
+  geom_line() +
+  facet_wrap(~ ParentLocationCode, scales = "free_y") +
+  labs(title = "HIV Case Trends in Countries Contributing 75% within WHO Regions",
+       y = "Estimated HIV Cases",
+       x = "Year") +
+  theme_minimal()
+```

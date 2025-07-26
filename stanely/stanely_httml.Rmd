@@ -1,0 +1,571 @@
+---
+title: "STANELY WORK"
+author: "STANELY"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+```
+
+```{r library,include=FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(janitor)
+library(ggplot2)
+library(scales)
+library(knitr)
+library(kableExtra)
+
+
+```
+
+
+```{r load data, include=FALSE}
+
+df1 <- read.csv("D:/Downloads/Thesis_CSV.csv")
+
+str(df1)
+```
+
+```{r eda, include=FALSE}
+#remove null columns
+
+df2 <- df1 %>%
+  select(where(~ !all(is.na(.)))) %>%
+  clean_names()
+```
+
+```{r rename columns, include=FALSE}
+
+df3 <- df2[, !names(df2) %in% c("basic_knowledge_right", "basic_knowledge_wrong", "basic_knowledge_right1", "basic_knowledge_wrong2")]
+
+
+# Select only the columns related to basic knowledge
+basic_cols <- df3[, grep("^basic_knowledge", names(df3))]
+
+
+# Count how many times 1 (RIGHT) and 2 (WRONG) appear in each row
+df3$basic_knowledge_right4 <- apply(basic_cols, 1, function(x) sum(x == 1, na.rm = TRUE))
+df3$basic_knowledge_wrong5 <- apply(basic_cols, 1, function(x) sum(x == 2, na.rm = TRUE))
+
+```
+
+
+```{r Count the number of facilitating, include=FALSE}
+
+
+hindering_cols <- df3[, grep("^hindering_and_facilitating_factors($|_[0-9]+$)", names(df3))]
+
+# Count the number of facilitating and hindering factors per row
+df3$facilitating_factors_count <- apply(hindering_cols, 1, function(x) sum(x == 1, na.rm = TRUE))
+df3$hindering_factors_count    <- apply(hindering_cols, 1, function(x) sum(x == 2, na.rm = TRUE))
+
+str(
+  df3
+)
+```
+
+```{r , include=FALSE}
+util_cols <- df3[, grep("^utilization_of_herbal_medicine($|_[0-9]+$)", names(df3))]
+
+# Count occurrences of each response level
+df3$util_always    <- apply(util_cols, 1, function(x) sum(x == 1, na.rm = TRUE))
+df3$util_often     <- apply(util_cols, 1, function(x) sum(x == 2, na.rm = TRUE))
+df3$util_sometimes <- apply(util_cols, 1, function(x) sum(x == 3, na.rm = TRUE))
+df3$util_rarely    <- apply(util_cols, 1, function(x) sum(x == 4, na.rm = TRUE))
+df3$util_never     <- apply(util_cols, 1, function(x) sum(x == 5, na.rm = TRUE))
+
+```
+
+
+```{r, include=FALSE}
+attitude_cols <- df3[, grep("^attitude_towards_herbal_medicine($|_[0-9]+$)", names(df3))]
+
+# Calculate row-wise sum across attitude columns
+df3$attitude_total_score <- rowSums(attitude_cols, na.rm = TRUE)
+
+```
+
+```{r , include=FALSE}
+df3$attitude_classification <- ifelse(df3$attitude_total_score < 12.5, 
+                                      "+ve",
+                                      ifelse(df3$attitude_total_score > 12.5,
+                                             "-ve", 
+                                             NA_character_))
+
+```
+
+```{r , include=FALSE}
+df4 <- df3[, !names(df3) %in% c(
+  # Basic knowledge items
+  "basic_knowledge", "basic_knowledge_1", "basic_knowledge_2", "basic_knowledge_3",
+  "basic_knowledge_4", "basic_knowledge_5", "basic_knowledge_6", "basic_knowledge_7", "basic_knowledge_8",
+  
+  # Utilization of herbal medicine items
+  "utilization_of_herbal_medicine", "utilization_of_herbal_medicine_1",
+  "utilization_of_herbal_medicine_2", "utilization_of_herbal_medicine_3",
+  
+  # Attitude towards herbal medicine items
+  "attitude_towards_herbal_medicine", "attitude_towards_herbal_medicine_1",
+  "attitude_towards_herbal_medicine_2", "attitude_towards_herbal_medicine_3",
+  "attitude_towards_herbal_medicine_4", "attitude_towards_herbal_medicine_5",
+  
+  # Hindering and facilitating factors
+  "hindering_and_facilitating_factors", "hindering_and_facilitating_factors_1",
+  "hindering_and_facilitating_factors_2", "hindering_and_facilitating_factors_3",
+  "hindering_and_facilitating_factors_4", "hindering_and_facilitating_factors_5",
+  "hindering_and_facilitating_factors_6", "hindering_and_facilitating_factors_7",
+  "hindering_and_facilitating_factors_8", "hindering_and_facilitating_factors_9"
+)]
+
+```
+
+```{r, include=TRUE}
+
+gender_counts <- df4 %>%
+  count(gender) %>%
+  mutate(gender_label = ifelse(gender == 1, "Male", "Female"))
+
+# Plot pie chart
+ggplot(gender_counts, aes(x = "", y = n, fill = gender_label)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  labs(title = "Number of Respondents by Gender", fill = "Gender") +
+  scale_fill_manual(values = c("Male" = "steelblue", "Female" = "hotpink")) +
+  theme_void()
+
+```
+
+
+```{r, include=TRUE}
+
+cadre_counts <- df4 %>%
+  count(cadre) %>%
+  mutate(
+    cadre = factor(cadre, levels = c(1, 2, 3),
+                   labels = c("Nurse", "Clinical Officer", "Doctor")),
+    percentage = n / sum(n),
+    label = paste0(cadre, "\n", percent(percentage))
+  )
+
+# Pie chart
+ggplot(cadre_counts, aes(x = "", y = n, fill = cadre)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = label), 
+            position = position_stack(vjust = 0.5), size = 5, color = "black") +
+  scale_fill_manual(values = c("blue", "orange", "green")) +
+  labs(title = "Number of Respondents by Cadre", fill = "Cadre") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+
+```{r , include=TRUE}
+experience_counts <- df4 %>%
+  count(work_experience) %>%
+  mutate(
+    work_experience = factor(work_experience, levels = c(1, 2, 3),
+                             labels = c("< 5 Years", "5–10 Years", "> 10 Years"))
+  )
+
+# Horizontal bar plot
+ggplot(experience_counts, aes(x = n, y = work_experience, fill = work_experience)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of Respondents by Work Experience",
+       x = "Number of Respondents",
+       y = "Work Experience") +
+  scale_fill_manual(values = c("skyblue", "skyblue", "skyblue")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r , include=TRUE}
+# Prepare data
+parenthood_counts <- df4 %>%
+  count(parenthood) %>%
+  mutate(
+    PARENTHOOD = factor(parenthood, levels = c(1, 2),
+                        labels = c("Parent/Guardian", "Non-Parent/Guardian")),
+    percentage = n / sum(n),
+    label = paste0(PARENTHOOD, "\n", percent(percentage))
+  )
+
+# Pie chart
+ggplot(parenthood_counts, aes(x = "", y = n, fill = PARENTHOOD)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = label),
+            position = position_stack(vjust = 0.5), color = "white", size = 5) +
+  scale_fill_manual(values = c("blue", "#d95f02")) +
+  labs(title = "Parenthood Status of Respondents", fill = "Parenthood") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r include=TRUE}
+
+# Function to summarize demographics
+summarize_demo <- function(data, var, var_name, labels) {
+  data %>%
+    count({{ var }}) %>%
+    mutate(
+      Variable = var_name,
+      Category = factor(as.character({{ var }}), levels = names(labels), labels = labels),
+      Percentage = round(100 * n / sum(n), 1)
+    ) %>%
+    select(Variable, Category, Count = n, Percentage)
+}
+
+# Apply function to different demographic variables
+gender_tbl <- summarize_demo(df4, gender, "Gender", c("1" = "Male", "2" = "Female"))
+cadre_tbl <- summarize_demo(df4, cadre, "Cadre", c("1" = "Nurse", "2" = "Clinical Officer", "3" = "Doctor"))
+qualification_tbl <- summarize_demo(df4, qualification, "Qualification", c("1" = "Diploma", "2" = "Bachelor", "3" = "Other"))
+experience_tbl <- summarize_demo(df4, work_experience, "Work Experience", c("1" = "<5 years", "2" = "5–10 years", "3" = ">10 years"))
+parenthood_tbl <- summarize_demo(df4, parenthood, "Parenthood", c("1" = "Parent/Guardian", "2" = "Non-Parent/Guardian"))
+
+# Combine all tables
+demographics_summary <- bind_rows(
+  gender_tbl,
+  cadre_tbl,
+  qualification_tbl,
+  experience_tbl,
+  parenthood_tbl
+)
+
+# Display the final table
+demographics_summary %>%
+  arrange(Variable, Category) %>%
+  kable(caption = "Table: Summary of Demographic Characteristics of Respondents") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+
+```{r}
+df3
+```
+
+
+```{r , include=FALSE}
+generate_summary <- function(df3, group_var, label) {
+  level_tbl <- df3 %>%
+    count(!!sym(group_var), knowledge_level) %>%
+    pivot_wider(names_from = knowledge_level, values_from = n, values_fill = 0)
+
+  source_tbl <- df3 %>%
+    count(!!sym(group_var),sorce_of_knowledge) %>%
+    pivot_wider(names_from = sorce_of_knowledge, values_from = n, values_fill = 0)
+
+  attitude_tbl <- df3 %>%
+    count(!!sym(group_var), attitude_classification) %>%
+    pivot_wider(names_from = attitude_classification, values_from = n, values_fill = 0)
+
+  # Join all sub-tables
+  full_tbl <- level_tbl %>%
+    full_join(source_tbl, by = group_var) %>%
+    full_join(attitude_tbl, by = group_var) %>%
+    mutate(Group = label) %>%
+    rename(Category = !!sym(group_var)) %>%
+    select(Group, Category, everything()) %>%
+    arrange(match(Category, c("Female", "Male", "Diploma", "Degree", "N.O", "C.O", "M.O", "< 5years", "5 – 10yrs", ">10yrs"))) %>%
+    adorn_totals("row", name = "Total")
+  
+  return(full_tbl)
+}
+
+table_gender <- generate_summary(df3, "gender", "Gender")
+table_qualification <- generate_summary(df3, "qualification", "Qualification")
+table_cadre <- generate_summary(df3, "cadre", "Cadre")
+table_experience <- generate_summary(df3, "work_experience", "Experience")
+
+# Combine
+table1_combined <- bind_rows(table_gender, table_qualification, table_cadre, table_experience)
+
+
+
+table1_combined_cleaned <- table1_combined %>%
+  select(-`1`, -`3.x`, -`6.y`, -`7.y`)
+
+```
+
+```{r , include=FALSE}
+table1_cleaned <- table1_combined_cleaned %>%
+  filter(Category != "Total")
+
+colnames(table1_cleaned) <- c(
+  "Group", "Category", 
+  "Basic_Knowledge", "Moderate_Knowledge", "Advanced_Knowledge", 
+  "Experience_Source", "Study_Source", "Other_Source", 
+  "Attitude_Positive", "Attitude_Negative"
+)
+
+
+
+```
+
+```{r ,include=TRUE}
+table1_labeled <- table1_cleaned %>%
+  mutate(
+    Category = case_when(
+      Group == "Gender" & Category == 1 ~ "Male",
+      Group == "Gender" & Category == 2 ~ "Female",
+      
+      Group == "Cadre" & Category == 1 ~ "Nurse",
+      Group == "Cadre" & Category == 2 ~ "Clinical Officer",
+      Group == "Cadre" & Category == 3 ~ "Doctor",
+      
+      Group == "Qualification" & Category == 1 ~ "Diploma",
+      Group == "Qualification" & Category == 2 ~ "Bachelor Degree",
+      Group == "Qualification" & Category == 3 ~ "Others",
+      
+      Group == "Experience" & Category == 1 ~ "<5 Years",
+      Group == "Experience" & Category == 2 ~ "5–10 Years",
+      Group == "Experience" & Category == 3 ~ ">10 Years",
+      
+      Group == "Parenthood" & Category == 1 ~ "Parent/Guardian",
+      Group == "Parenthood" & Category == 2 ~ "Not Parent/Guardian",
+      
+      TRUE ~ as.character(Category)  
+    )
+  )
+
+
+
+table1_filtered <- table1_labeled %>%
+  filter(Category != "Total")
+
+# View the filtered table
+kable(table1_filtered, format = "html", 
+      caption = "Summary of Healthcare Professionals’ Knowledge and Attitudes on Herbal Medicine") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+
+```
+
+```{r}
+df4
+```
+
+
+```{r}
+# Assuming these are the utilization variables
+utilization_vars1 <- df4 %>% select(util_always,util_often,util_sometimes)
+
+# Summarize each utilization question
+util_summary <- bind_rows(
+  lapply(names(utilization_vars1), function(var) {
+    df4 %>%
+      count(!!sym(var)) %>%
+      mutate(
+        Question = var,
+        Response = as.character(!!sym(var)),
+        Percentage = round(100 * n / sum(n), 1)
+      ) %>%
+      select(Question, Response, Count = n, Percentage)
+  })
+)
+
+# View summary
+print(util_summary)
+
+```
+
+
+```{r ,include=FALSE}
+generate_utilization_sums <- function(df4, group_var, label) {
+  
+  sum_tbl <- df4 %>%
+    group_by(!!sym(group_var)) %>%
+    summarise(across(
+      c(util_always, util_often, util_sometimes, util_rarely, util_never,
+        facilitating_factors_count, hindering_factors_count),
+      ~ sum(. , na.rm = TRUE))) %>%
+    mutate(Group = label) %>%
+    rename(Category = !!sym(group_var)) %>%
+    select(Group, Category, everything()) %>%
+    adorn_totals("row", name = "Total")
+  
+  return(sum_tbl)
+}
+
+# Generate correct sums by group
+util_sums_gender <- generate_utilization_sums(df4, "gender", "Gender")
+util_sums_qualification <- generate_utilization_sums(df4, "qualification", "Qualification")
+util_sums_cadre <- generate_utilization_sums(df4, "cadre", "Cadre")
+util_sums_experience <- generate_utilization_sums(df4, "work_experience", "Experience")
+
+util_sums_combined <- bind_rows(
+  util_sums_gender,
+  util_sums_qualification,
+  util_sums_cadre,
+  util_sums_experience
+)
+
+
+```
+
+```{r ,include=TRUE}
+table2_labeled <- util_sums_combined %>%
+  mutate(
+    Category = case_when(
+      Group == "Gender" & Category == 1 ~ "Male",
+      Group == "Gender" & Category == 2 ~ "Female",
+      
+      Group == "Cadre" & Category == 1 ~ "Nurse",
+      Group == "Cadre" & Category == 2 ~ "Clinical Officer",
+      Group == "Cadre" & Category == 3 ~ "Doctor",
+      
+      Group == "Qualification" & Category == 1 ~ "Diploma",
+      Group == "Qualification" & Category == 2 ~ "Bachelor Degree",
+      Group == "Qualification" & Category == 3 ~ "Master",
+      
+      Group == "Experience" & Category == 1 ~ "<5 Years",
+      Group == "Experience" & Category == 2 ~ "5–10 Years",
+      Group == "Experience" & Category == 3 ~ ">10 Years",
+      
+      Group == "Parenthood" & Category == 1 ~ "Parent/Guardian",
+      Group == "Parenthood" & Category == 2 ~ "Not Parent/Guardian",
+      
+      TRUE ~ as.character(Category) 
+    )
+  )
+
+
+# Display as Harvard-style table
+kable(table2_labeled, format = "html", 
+      caption = "PLHIV and TB Burden as Percent of County Population") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+
+
+```
+
+```{r , include=TRUE}
+gender_knowledge <- table1_filtered %>%
+  filter(Group == "Gender") %>%
+  select(Category, Basic_Knowledge, Moderate_Knowledge, Advanced_Knowledge) %>%
+  pivot_longer(cols = -Category, names_to = "Knowledge_Level", values_to = "Count")
+
+# Grouped horizontal bar plot
+ggplot(gender_knowledge, aes(x = Category, y = Count, fill = Knowledge_Level)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  coord_flip() +
+  labs(
+    title = "Knowledge Levels by Gender (Grouped)",
+    x = "Gender",
+    y = "Number of Respondents",
+    fill = "Knowledge Level"
+  ) +
+  theme_minimal()
+
+
+```
+
+```{r , include=TRUE}
+df_long <- df4 %>%
+  select(knowledge_level, attitude_total_score) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Score")
+
+# Plot boxplots side by side
+ggplot(df_long, aes(x = Variable, y = Score, fill = Variable)) +
+  geom_boxplot(alpha = 0.7) +
+  scale_fill_manual(values = c("knowledge_level" = "steelblue", "attitude_total_score" = "tomato")) +
+  labs(title = "Boxplots of Knowledge and Attitude Scores",
+       x = "Variable",
+       y = "Score") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+```{r , include=FALSE}
+df5 <- df4 %>%
+  mutate(
+    total_util_responses = util_always + util_often + util_sometimes + util_rarely + util_never,
+    util_score = (
+      (util_always * 1) +
+      (util_often * 2) +
+      (util_sometimes * 3) +
+      (util_rarely * 4) +
+      (util_never * 5)
+    ) / total_util_responses
+  )
+
+
+df6 <- df5 %>%
+  mutate(
+    knowledge_cat = ifelse(knowledge_level >= median(knowledge_level, na.rm = TRUE), "High", "Low"),
+    attitude_cat = ifelse(attitude_total_score >= median(attitude_total_score, na.rm = TRUE), "Positive", "Negative"),
+    util_cat = ifelse(util_score > 2.5 , "Utilizes", "Does_Not_Utilize")  # adjust as needed
+  )
+```
+
+```{r chi_square, include=TRUE}
+
+fisher_result <- fisher.test(table(df6$knowledge_level, df6$attitude_total_score),
+                             simulate.p.value = TRUE, B = 10000)
+
+# Extract values from the htest object
+fisher_df <- data.frame(
+  Test = "Fisher's Exact Test",
+  P_Value = format.pval(fisher_result$p.value, digits = 4),
+  Alternative = fisher_result$alternative,
+  Method = fisher_result$method,
+  stringsAsFactors = FALSE
+)
+
+kable(fisher_df, format = "html", caption = "Fisher’s Exact Test Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+
+
+```
+
+```{r}
+write.csv(df6, "df_output.csv", row.names = FALSE)
+
+```
+
+
+```{r correlation, include=TRUE}
+
+cor_result <- cor.test(df4$knowledge_level, df4$attitude_total_score, method = "spearman")
+
+
+
+# Extract values from the cor.test object
+cor_df <- data.frame(
+  Test = "Spearman Correlation",
+  Correlation_Coefficient = round(cor_result$estimate, 3),
+  P_Value = format.pval(cor_result$p.value, digits = 4),
+  Method = cor_result$method,
+  Alternative = cor_result$alternative,
+  stringsAsFactors = FALSE
+)
+
+
+kable(cor_df, format = "html", caption = "Spearman Correlation Test Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+
+
+
+```
+
+

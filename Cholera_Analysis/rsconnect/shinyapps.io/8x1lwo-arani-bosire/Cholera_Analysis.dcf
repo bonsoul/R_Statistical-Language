@@ -1,0 +1,12 @@
+name: Cholera_Analysis
+title: Cholera_Analysis
+username: 8x1lwo-arani-bosire
+account: 8x1lwo-arani-bosire
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14447674
+bundleId: 10162766
+url: https://8x1lwo-arani-bosire.shinyapps.io/Cholera_Analysis/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

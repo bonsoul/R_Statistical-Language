@@ -1,0 +1,2289 @@
+---
+title: "Agatha_Work"
+author: "Dr.Agatha"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, include=FALSE}
+library(dplyr)
+library(stringr)
+library(tidyverse)
+library(knitr)
+library(ggVennDiagram)
+library(kableExtra)
+library(janitor)
+```
+
+```{r load the dataset, include=FALSE} 
+df <- read.csv("D:/Downloads/Caregivers data.csv") #caregiver and assessment score
+
+data <- read_csv("D:/Downloads/Healthcareworkers_data.csv")
+
+
+```
+
+```{r, include=FALSE}
+
+data2 <- data %>%
+  clean_names()
+
+```
+
+
+```{r, include=FALSE}
+data2 <- data2 %>%
+  mutate(Type_of_facility = case_when(
+    str_detect(tolower(study_sites), "hc") ~ "Health Centre",
+    str_detect(tolower(study_sites), "disp") ~ "Dispensary",
+    TRUE ~ "Other"
+  ))
+
+```
+
+
+```{r EDA - cleaning, include=FALSE}
+
+colnames(df) <- colnames(df) %>%
+  str_replace_all("\\s+", "_") %>%              # Replace spaces with underscores
+  str_replace_all("[\\r\\n]+", "_") %>%         # Replace line breaks (both \r and \n) with underscores
+  #str_replace_all("[^[:alnum:]_]", "") %>%      # Remove all non-alphanumeric characters except underscores
+  str_replace_all("_+", "_") %>%
+  str_replace_all("\\.", "_") %>% # Collapse multiple underscores into a single one
+  str_replace_all("^_|_$", "") %>%              # Remove leading/trailing underscores
+  tolower()
+
+
+```
+
+
+```{r, include=FALSE}
+
+caregiver_df <- df %>%
+  select(
+    timestamp,
+    name_of_the_warafacility,
+    date,
+    time,
+    age_in_years,
+    gender,
+    relationship_to_the_child,
+    occupation,
+    level_of_education,
+    do_you_have_the_social_health_insurance_sha_,
+    do_you_have_any_health_insurance_other_than_the_sha,
+    if_the_answer_is_no_to_either_of_the_above_2_questions__what_is_the_reason
+  )
+
+```
+
+```{r , include=FALSE}
+# Vector of variables to summarize
+vars <- c(
+  "age_in_years",
+  "gender",
+  "relationship_to_the_child",
+  "level_of_education",
+  "do_you_have_the_social_health_insurance_sha_",
+  "do_you_have_any_health_insurance_other_than_the_sha"
+)
+
+# Correct function
+summarise_var <- function(var, data) {
+  data %>%
+    filter(!is.na(.data[[var]])) %>%
+    count(Category = .data[[var]]) %>%
+    mutate(
+      Characteristic = var,
+      `Percentage (%)` = round(100 * n / sum(n), 1)
+    ) %>%
+    select(Characteristic, Category, Frequency = n, `Percentage (%)`)
+}
+
+# Now this will work correctly
+demographic_summary <- bind_rows(lapply(vars, summarise_var, data = caregiver_df))
+
+
+# Clean and arrange the summary
+demographic_summary <- demographic_summary %>%
+  mutate(Characteristic = recode(Characteristic,
+                                 age_in_years = "Age in Years",
+                                 gender = "Gender",
+                                 relationship_to_the_child = "Relationship to Child",
+                                 level_of_education = "Level of Education",
+                                 do_you_have_the_social_health_insurance_sha_ = "Has SHA",
+                                 do_you_have_any_health_insurance_other_than_the_sha = "Has Other Insurance"))
+
+
+```
+
+```{r, Demographic Characteristics of Caregivers, include=TRUE}
+demographic_summary %>%
+  kable(format = "html", 
+        caption = "Table 1: Demographic Characteristics of Caregivers") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, position = "center")
+```
+
+
+
+```{r, include=FALSE}
+
+summary_vars <- c(
+  "age",
+  "gender",
+  "cadre_of_hc_ws",
+  "duration_of_practise",
+  "imci_trained"
+)
+
+# Summary function with dynamic cleaning
+summarise_var_cleaned <- function(var, df) {
+  df_clean <- df %>%
+    filter(!is.na(.data[[var]])) %>%
+    mutate(cleaned_value = case_when(
+      # Age cleanup
+      var == "age" & .data[[var]] %in% c(">45", "Above 45", "Above45") ~ "Above 45",
+
+      # Gender cleanup
+      var == "gender" & .data[[var]] %in% c("1", 1) ~ "Male",
+      var == "gender" & .data[[var]] %in% c("2", 2) ~ "Female",
+
+      # Cadre cleanup
+      
+    var == "cadre_of_hc_ws" & .data[[var]] %in% c("Clinical Officer", "clinical officer") ~ "Clinical Officer",
+    var == "cadre_of_hc_ws" & .data[[var]] %in% c("Medical Officer", "medical officer") ~ "Medical Officer",
+    var == "cadre_of_hc_ws" & .data[[var]] %in% c("Nurse", "nurse") ~ "Nurse",
+
+
+      # Years of Practice cleanup
+      var == "duration_of_practise" & .data[[var]] %in% c("0-5", "0-5 years") ~ "0-5",
+      var == "duration_of_practise" & str_detect(.data[[var]], "6-10") ~ "6-10",
+      var == "duration_of_practise" & str_detect(.data[[var]], "11-15") ~ "11-15",
+      var == "duration_of_practise" & .data[[var]] %in% c(">20", ">20 years") ~ ">20",
+
+      # IMCI Certification cleanup
+      var == "imci_trained" & .data[[var]] %in% c("1", 1) ~ "Yes",
+      var == "imci_trained" & .data[[var]] %in% c("0", 0) ~ "No",
+
+      TRUE ~ as.character(.data[[var]])
+    ))
+
+  df_clean %>%
+    count(Category = cleaned_value) %>%
+    mutate(
+      Characteristic = var,
+      `Percentage (%)` = round(100 * n / sum(n), 1)
+    ) %>%
+    select(Characteristic, Category, Frequency = n, `Percentage (%)`)
+}
+
+# Apply to all selected variables
+demographic_summary2 <- bind_rows(
+  lapply(summary_vars, function(var) summarise_var_cleaned(var, data2))
+)
+
+# Rename for reporting clarity
+demographic_summary2 <- demographic_summary2 %>%
+  mutate(Characteristic = recode(Characteristic,
+    age = "Age",
+    gender = "Gender",
+    cadre_of_hc_ws = "Cadre",
+    duration_of_practise = "Years of Practice",
+    imci_trained = "IMCI Certified"
+  )) %>%
+  arrange(Characteristic)
+
+
+```
+
+
+```{r, Healthcare Worker Demographic Summary, include=TRUE}
+# Print with kable
+demographic_summary2 %>%
+  kable(format = "html", caption = "Table 2: Healthcare Worker Demographic Summary") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "center")
+```
+
+```{r, include=FALSE}
+
+child_df <- df %>%
+  select(
+    age_of_child__in_months,
+    gender_of_child,
+    what_is_the_main_reason_you_brought_the_child_to_the_health_facility_today,
+    what_is_the_final_diagnosis_of_the_child
+  )
+
+```
+
+
+```{r, Child Demographic Summary, include=FALSE}
+# Categorize child age
+child_df <- child_df %>%
+  mutate(age_group = case_when(
+    is.na(age_of_child__in_months) ~ NA_character_,
+    age_of_child__in_months >= 2 & age_of_child__in_months <= 11 ~ "2–11 months",
+    age_of_child__in_months >= 12 & age_of_child__in_months <= 59 ~ "12–59 months",
+    TRUE ~ NA_character_  # Exclude <2 and >59 months
+  ))
+
+
+# Variables to summarize
+summary_vars_child <- c(
+  "age_group",
+  "gender_of_child"
+)
+
+# Summary function (make sure it's already defined)
+summarise_var1 <- function(var, df) {
+  df %>%
+    filter(!is.na(.data[[var]])) %>%
+    count(Category = .data[[var]]) %>%
+    mutate(
+      Characteristic = var,
+      `Percentage (%)` = round(100 * n / sum(n), 1)
+    ) %>%
+    select(Characteristic, Category, Frequency = n, `Percentage (%)`)
+}
+
+# Apply summary
+child_demographic_summary <- bind_rows(
+  lapply(summary_vars_child, function(var) summarise_var1(var, child_df))
+)
+
+# Clean characteristic names
+child_demographic_summary <- child_demographic_summary %>%
+  mutate(
+    Characteristic = recode(Characteristic,
+      age_group = "Age of Child (months)",
+      gender_of_child = "Gender of Child"
+    )
+  )
+
+
+```
+
+```{r, include=TRUE}
+# Knit-friendly HTML table
+child_demographic_summary %>%
+  kable(format = "html", caption = "Table3: Child Demographic Summary") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+```{r, SHA Analysis, include=TRUE}
+# Prepare data
+sha_data <- caregiver_df %>%
+  filter(!is.na(do_you_have_the_social_health_insurance_sha_)) %>%
+  count(Has_SHA = do_you_have_the_social_health_insurance_sha_) %>%
+  mutate(percentage = round(100 * n / sum(n), 1),
+         label = paste0(Has_SHA, " (", percentage, "%)"))
+
+# Plot
+ggplot(sha_data, aes(x = "", y = n, fill = Has_SHA)) +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Has Social Health Insurance (SHA)", fill = "Response") +
+  theme_void() +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5))
+
+
+# Prepare data
+other_insurance_data <- caregiver_df %>%
+  filter(!is.na(do_you_have_any_health_insurance_other_than_the_sha)) %>%
+  count(Other_Insurance = do_you_have_any_health_insurance_other_than_the_sha) %>%
+  mutate(percentage = round(100 * n / sum(n), 1),
+         label = paste0(Other_Insurance, " (", percentage, "%)"))
+
+# Plot
+ggplot(other_insurance_data, aes(x = "", y = n, fill = Other_Insurance)) +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Has NO SHA but have Other Health Insurance", fill = "Response") +
+  theme_void() +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5))
+
+```
+
+
+
+```{r, include=FALSE}
+hcw_observations_df <- df %>%
+  select(
+    name_of_the_warafacility,
+    does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed,
+    does_health_worker_ask_whether_the_child_vomits_everything,
+    does_health_worker_ask_whether_the_child_has_convulsions,
+    does_health_worker_ask_for_cough_or_difficult_breathing,
+    does_health_worker_ask_for_diarrhea,
+    does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_,
+    does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears,
+    does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today,
+    does_the_health_worker__or_another_staff__check_the_temperature_of_the_child,
+    does_health_worker_look_for_palmar_pallor,
+    does_health_worker_look_for_oedema_of_both_feet,
+    does_the_health_worker_check_the_skin_pinch_skin_turgor,
+    does_health_worker_look_in_the_sick_child_s_ears,
+    does_health_worker_count_the_respiratory_rate,
+    does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress
+  ) %>%
+  mutate(across(
+    -name_of_the_warafacility,
+    ~ case_when(
+      tolower(.) == "yes" ~ 1,
+      tolower(.) == "no" ~ 0,
+      TRUE ~ NA_real_
+    )
+  ))
+
+```
+
+
+
+# The 15 Variables in the assessment
+
+```{r, include=FALSE}
+
+# Define your label map again
+label_map <- c(
+  does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed = "Asked if able to drink/breastfeed",
+  does_health_worker_ask_whether_the_child_vomits_everything = "Asked if child vomits everything",
+  does_health_worker_ask_whether_the_child_has_convulsions = "Asked if child has convulsions",
+  does_health_worker_ask_for_cough_or_difficult_breathing = "Asked about cough/difficult breathing",
+  does_health_worker_ask_for_diarrhea = "Asked about diarrhea",
+  does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_ = "Asked about fever or previous temp",
+  does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears = "Asked about ear pain/discharge",
+  does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today = "Weighed and recorded weight",
+  does_the_health_worker__or_another_staff__check_the_temperature_of_the_child = "Checked child's temperature",
+  does_health_worker_look_for_palmar_pallor = "Looked for palmar pallor",
+  does_health_worker_look_for_oedema_of_both_feet = "Looked for oedema of both feet",
+  does_the_health_worker_check_the_skin_pinch_skin_turgor = "Checked skin pinch (turgor)",
+  does_health_worker_look_in_the_sick_child_s_ears = "Looked in child’s ears",
+  does_health_worker_count_the_respiratory_rate = "Counted respiratory rate",
+  does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress = "Undressed/lifted child’s shirt"
+)
+
+# Clean, relabel, and reshape the data
+long_hcw_df <- hcw_observations_df %>%
+  pivot_longer(
+    cols = all_of(names(label_map)),
+    names_to = "indicator",
+    values_to = "response"
+  ) %>%
+  filter(response %in% c(0, 1)) %>%
+  mutate(
+    response = ifelse(response == 1, "Yes", "No"),
+    indicator = recode(indicator, !!!label_map)
+  )
+
+
+```
+
+```{r, include=FALSE}
+long_hcw_df %>%
+  count(indicator, response) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = n), vjust = -0.5, size = 3.5) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  facet_wrap(~ indicator, scales = "free_y", ncol = 3) +
+  labs(
+    title = "Health Worker Assessment Steps During Sick Child Visit",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 11, face = "bold"),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10)
+  )
+
+```
+
+
+```{r}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 1 ~ "Yes",
+    does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+
+```{r,Child Vomits Everything}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_whether_the_child_vomits_everything == 1 ~ "Yes",
+    does_health_worker_ask_whether_the_child_vomits_everything == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_whether_the_child_vomits_everything == 1 ~ "Yes",
+    does_health_worker_ask_whether_the_child_vomits_everything == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker Ask if Child Vomits Everything?",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+
+```{r,2. Asks if child has convulsions}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_whether_the_child_has_convulsions == 1 ~ "Yes",
+    does_health_worker_ask_whether_the_child_has_convulsions == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,Child Has Convulsions, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_whether_the_child_has_convulsions == 1 ~ "Yes",
+    does_health_worker_ask_whether_the_child_has_convulsions == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker Ask if Child Has Convulsions?",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r, Asks about cough/difficult breathing}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_for_cough_or_difficult_breathing == 1 ~ "Yes",
+    does_health_worker_ask_for_cough_or_difficult_breathing == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,3Asks about cough/difficult breathing,include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_for_cough_or_difficult_breathing == 1 ~ "Yes",
+    does_health_worker_ask_for_cough_or_difficult_breathing == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker Ask for cough or difficult breathing?",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Asks about diarrhea}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_for_diarrhea == 1 ~ "Yes",
+    does_health_worker_ask_for_diarrhea == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,4Asks about diarrhea, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_for_diarrhea == 1 ~ "Yes",
+    does_health_worker_ask_for_diarrhea == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker Ask if Child Has diarrhea?",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+
+```{r,Asks about fever or checks previous temp}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_ == 1 ~ "Yes",
+    does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_ == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,5Asks about fever or checks previous temp,include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_ == 1 ~ "Yes",
+    does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_ == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker Ask if Child Has feel_for_fever?",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Asks about ear pain/discharge}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears == 1 ~ "Yes",
+    does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,6Asks about ear pain/discharge, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears == 1 ~ "Yes",
+    does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker Ask if Child Has pain_or_discharge_in_the_ears",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r weighs_child}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today == 1 ~ "Yes",
+    does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+```
+
+```{r,7weighs_child,include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today == 1 ~ "Yes",
+    does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker weigh_and_record_the_weight_of_the_child_today",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Checks_child_temperature, include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker__or_another_staff__check_the_temperature_of_the_child == 1 ~ "Yes",
+    does_the_health_worker__or_another_staff__check_the_temperature_of_the_child == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+
+```{r,8Checks child_temperature,include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker__or_another_staff__check_the_temperature_of_the_child == 1 ~ "Yes",
+    does_the_health_worker__or_another_staff__check_the_temperature_of_the_child == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker check_the_temperature_of_the_child",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Looks for palmar pallor,include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_look_for_palmar_pallor == 1 ~ "Yes",
+    does_health_worker_look_for_palmar_pallor == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r, 9Looks for palmar pallor, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_look_for_palmar_pallor == 1 ~ "Yes",
+    does_health_worker_look_for_palmar_pallor == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker look_for_palmar_pallor",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Looks for oedema of both feet,include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_look_for_oedema_of_both_feet == 1 ~ "Yes",
+    does_health_worker_look_for_oedema_of_both_feet == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,10Looks for oedema of both feet, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_look_for_oedema_of_both_feet == 1 ~ "Yes",
+    does_health_worker_look_for_oedema_of_both_feet == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker look_for_oedema_of_both_feet",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Checks skin turgor,include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker_check_the_skin_pinch_skin_turgor == 1 ~ "Yes",
+    does_the_health_worker_check_the_skin_pinch_skin_turgor == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,11Checks skin turgor, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker_check_the_skin_pinch_skin_turgor == 1 ~ "Yes",
+    does_the_health_worker_check_the_skin_pinch_skin_turgor == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker check_the_skin_pinch_skin_turgor",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Looks in child ears, include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_look_in_the_sick_child_s_ears == 1 ~ "Yes",
+    does_health_worker_look_in_the_sick_child_s_ears == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+
+```{r, 12Looks in child_ears,include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_look_in_the_sick_child_s_ears == 1 ~ "Yes",
+    does_health_worker_look_in_the_sick_child_s_ears == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker look_in_the_sick_child_s_ears",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Counts respiratory rate, include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_count_the_respiratory_rate == 1 ~ "Yes",
+    does_health_worker_count_the_respiratory_rate == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r, 13Counts respiratory rate,include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_health_worker_count_the_respiratory_rate == 1 ~ "Yes",
+    does_health_worker_count_the_respiratory_rate == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker count_the_respiratory_rate",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+
+```{r,Undresses/lifts child_shirt, include=FALSE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress == 1 ~ "Yes",
+    does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+
+```
+
+```{r,14Undresses/lifts child shirt}, include=TRUE}
+hcw_observations_df %>%
+  count(response = case_when(
+    does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress == 1 ~ "Yes",
+    does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress == 0 ~ "No",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = response, y = n, fill = response)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#60a5fa", "No" = "#f87171")) +
+  geom_text(aes(label = n), vjust = -0.5, size = 5) +
+  labs(
+    title = "Did Health Worker undress_the_child_lift_the_child_s_shirt_dress",
+    x = NULL,
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+```{r,include=FALSE}
+label_map <- c(
+  does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed = "Asks if child can drink/breastfeed",
+  does_health_worker_ask_whether_the_child_vomits_everything = "Asks if child vomits everything",
+  does_health_worker_ask_whether_the_child_has_convulsions = "Asks if child has convulsions",
+  does_health_worker_ask_for_cough_or_difficult_breathing = "Asks about cough/difficult breathing",
+  does_health_worker_ask_for_diarrhea = "Asks about diarrhea",
+  does_health_worker_ask_feel_for_fever__or_refer_to_temperature_if_taken_previously_ = "Asks about fever or checks previous temp",
+  does_the_healthcare_worker_ask_if_the_child_has_pain_or_discharge_in_the_ears = "Asks about ear pain/discharge",
+  does_the_health_worker__or_another_staff__weigh_and_record_the_weight_of_the_child_today = "Weighs and records child's weight",
+  does_the_health_worker__or_another_staff__check_the_temperature_of_the_child = "Checks child's temperature",
+  does_health_worker_look_for_palmar_pallor = "Looks for palmar pallor",
+  does_health_worker_look_for_oedema_of_both_feet = "Looks for oedema of both feet",
+  does_the_health_worker_check_the_skin_pinch_skin_turgor = "Checks skin turgor",
+  does_health_worker_look_in_the_sick_child_s_ears = "Looks in child's ears",
+  does_health_worker_count_the_respiratory_rate = "Counts respiratory rate",
+  does_the_health_worker_undress_the_child_lift_the_child_s_shirt_dress = "Undresses/lifts child’s shirt"
+)
+
+```
+
+
+```{r, include=FALSE}
+hcw_summary <- hcw_observations_df %>%
+  summarise(across(everything(), ~ mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(cols = everything(), names_to = "indicator", values_to = "proportion_yes") %>%
+  mutate(
+    proportion_no = 1 - proportion_yes
+  ) %>%
+  pivot_longer(cols = c(proportion_yes, proportion_no), 
+               names_to = "response", 
+               values_to = "proportion") %>%
+  mutate(
+    response = recode(response, 
+                      proportion_yes = "Yes", 
+                      proportion_no = "No"),
+    percent = round(proportion * 100, 1),
+    indicator_label = label_map[as.character(indicator)]
+  ) %>%
+  filter(!is.na(indicator_label)) %>%  # remove any NA labels
+  select(indicator, indicator_label, response, percent)
+
+
+```
+
+
+
+```{r, include=FALSE}
+# Prepare filtered summary with descending order for Yes
+hcw_summary_clean <- hcw_summary %>%
+  filter(!is.na(percent), !is.na(indicator_label)) %>%
+  group_by(indicator_label) %>%
+  mutate(order_value = if_else(response == "Yes", percent, NA_real_)) %>%
+  fill(order_value, .direction = "downup") %>%
+  ungroup() %>%
+  mutate(indicator_label = fct_reorder(indicator_label, order_value, .desc = FALSE))
+
+```
+
+
+```{r, Health Worker IMCI Compliance by 15 Indicator, include=TRUE}
+ggplot(hcw_summary_clean, aes(x = percent, 
+                              y = indicator_label, 
+                              fill = response)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(
+    values = c("Yes" = "#60a5fa", "No" = "#f87171")
+  ) +
+  labs(
+    title = "Health Worker IMCI Compliance by 15 Indicator",
+    x = "Percentage (%)",
+    y = "Indicator",
+    fill = "Response"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+# 3DANGER SIGNS
+
+
+```{r, table count, include=FALSE}
+danger_sign_summary <- hcw_observations_df %>%
+  summarise(
+    Total = n(),
+    
+    `Asked about drinking - Yes` = sum(does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 1, na.rm = TRUE),
+    `Asked about drinking - No` = sum(does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 0, na.rm = TRUE),
+    
+    `Asked about vomiting - Yes` = sum(does_health_worker_ask_whether_the_child_vomits_everything == 1, na.rm = TRUE),
+    `Asked about vomiting - No` = sum(does_health_worker_ask_whether_the_child_vomits_everything == 0, na.rm = TRUE),
+    
+    `Asked about convulsions - Yes` = sum(does_health_worker_ask_whether_the_child_has_convulsions == 1, na.rm = TRUE),
+    `Asked about convulsions - No` = sum(does_health_worker_ask_whether_the_child_has_convulsions == 0, na.rm = TRUE)
+  ) %>%
+  pivot_longer(-Total, names_to = "Indicator", values_to = "Count") %>%
+  mutate(
+    Response = ifelse(grepl("Yes$", Indicator), "Yes", "No"),
+    `Danger Sign` = gsub(" - (Yes|No)$", "", Indicator),
+    Percent = round((Count / Total) * 100, 1)
+  ) %>%
+  select(`Danger Sign`, Response, Count, Percent)
+
+```
+
+```{r,include=TRUE}
+danger_sign_summary %>%
+  kable(format = "html", caption = "Table: Danger Sign Assessment by Healthcare Workers") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+
+```
+
+
+```{r,Danger Sign Assessment, include=FALSE}
+danger_sign_summary <- hcw_observations_df %>%
+  summarise(
+    Total = n(),
+    `Asked about drinking - Yes` = sum(does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 1, na.rm = TRUE),
+    `Asked about drinking - No` = sum(does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 0, na.rm = TRUE),
+    
+    `Asked about vomiting - Yes` = sum(does_health_worker_ask_whether_the_child_vomits_everything == 1, na.rm = TRUE),
+    `Asked about vomiting - No` = sum(does_health_worker_ask_whether_the_child_vomits_everything == 0, na.rm = TRUE),
+    
+    `Asked about convulsions - Yes` = sum(does_health_worker_ask_whether_the_child_has_convulsions == 1, na.rm = TRUE),
+    `Asked about convulsions - No` = sum(does_health_worker_ask_whether_the_child_has_convulsions == 0, na.rm = TRUE)
+  ) %>%
+  pivot_longer(-Total, names_to = "Indicator", values_to = "Count") %>%
+  mutate(
+    Response = ifelse(grepl("Yes$", Indicator), "Yes", "No"),
+    `Danger Sign` = gsub(" - (Yes|No)$", "", Indicator),
+    Percent = round((Count / Total) * 100, 1)
+  ) %>%
+  select(`Danger Sign`, Response, Count, Percent)
+
+```
+
+```{r, Danger Sign Assessment by Health Workers,include=TRUE}
+# Horizontal bar plot with tilted y-axis labels
+ggplot(danger_sign_summary, aes(x = `Danger Sign`, y = Count, fill = Response)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(values = c("Yes" = "#3b82f6", "No" = "#ef4444")) +
+  geom_text(aes(label = paste0(Count, " (", Percent, "%)")), 
+            position = position_dodge(width = 0.7), 
+            hjust = -0.1, size = 4) +
+  labs(
+    title = "Danger Sign Assessment by Health Workers",
+    x = NULL,
+    y = "Number of Responses",
+    fill = "Response"
+  ) +
+  coord_flip() +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.y = element_text(angle = 45, hjust = 1) 
+  )
+
+
+```
+
+
+```{r, VEIN DIAGRAM, include=TRUE}
+venn_data <- hcw_observations_df %>%
+  mutate(
+    drank = does_health_worker_ask_whether_the_child_is_able_to_drink_or_breastfeed == 1,
+    vomit = does_health_worker_ask_whether_the_child_vomits_everything == 1,
+    convulsions = does_health_worker_ask_whether_the_child_has_convulsions == 1
+  )
+
+ggVennDiagram(list(
+  "Breastfeed" = which(venn_data$drank),
+  "Vomits Everything" = which(venn_data$vomit),
+  "Convulsions" = which(venn_data$convulsions)
+), label_alpha = 0) +
+  scale_fill_gradient(low = "#dbeafe", high = "#1e40af") +
+  labs(title = "Overlap in Danger Sign Assessments")
+
+```
+
+
+#The Venn diagram reveals that 59% of healthcare workers (72 children) were assessed for all three critical danger signs: ability to drink or breastfeed, vomiting everything, and convulsions—indicating a majority performed a complete danger sign assessment. However, significant gaps remain: 21% (26 children) were only asked about breastfeeding, while 12% (15 children) were assessed for both breastfeeding and vomiting but not convulsions. A small fraction—5% (6 children) and 2% (2 children)—were only asked about vomiting or convulsions, respectively, while another 2% were asked about both breastfeeding and convulsions but missed vomiting entirely. Notably, no child was asked about vomiting and convulsions without breastfeeding.
+
+
+
+
+
+```{r, include=FALSE}
+hcw_observations_df1 <- hcw_observations_df %>%
+  rowwise() %>%
+  mutate(
+    total_score = sum(c_across(-name_of_the_warafacility), na.rm = TRUE),
+    items_answered = sum(!is.na(c_across(-name_of_the_warafacility))),
+    percent_score = (total_score / items_answered) * 100,
+    assessment_quality = ifelse(percent_score >= 80, "Satisfactory", "Unsatisfactory")
+  ) %>%
+  ungroup()
+
+
+```
+
+
+
+
+```{r, include=TRUE}
+hcw_observations_df1 %>%
+  count(assessment_quality) %>%
+  rename(
+    `Assessment Quality` = assessment_quality,
+    `Number of Observations` = n
+  ) %>%
+  kable(format = "html", caption = "Table 1: Clinical Assessment Quality of Sick Children Aged 2–59 Months") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "center")
+
+```
+
+
+```{r plot, include=TRUE}
+ggplot(hcw_observations_df1, aes(x = assessment_quality, fill = assessment_quality)) +
+  geom_bar() +
+  scale_fill_manual(values = c("Satisfactory" = "#1b9e77", "Unsatisfactory" = "#d95f02")) +
+  labs(
+    title = "Clinical Assessment Quality of Sick Children (2–59 Months)",
+    x = "Assessment Quality",
+    y = "Number of Observations"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+```{r, include=TRUE}
+pie_data <- hcw_observations_df1 %>%
+  count(assessment_quality) %>%
+  mutate(
+    label = paste0(assessment_quality, ": ", round(100 * n / sum(n), 1), "%")
+  )
+
+# Create pie chart
+ggplot(pie_data, aes(x = "", y = n, fill = assessment_quality)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(
+    values = c("Satisfactory" = "#e2eaea", "Unsatisfactory" = "#29598a")
+  ) +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 5, color = "black") +
+  labs(
+    title = "Clinical Assessment Quality of Sick Children (2–59 Months)",
+    fill = "Assessment Quality"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),
+    legend.position = "none"
+  )
+```
+
+
+```{r, include=TRUE}
+hcw_observations_df1 %>%
+  summarise(`Mean Clinical Assessment Score (%)` = round(mean(percent_score, na.rm = TRUE), 1)) %>%
+  kable(format = "html", caption = "Table 2: Mean Clinical Assessment Score Among Observed Consultations") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "center")
+```
+
+
+
+```{r, include=FALSE}
+data3 <- data2 %>%
+  rename(name_of_the_facility = study_sites)
+
+hcw_observations_df1 <- hcw_observations_df1 %>%
+  rename(name_of_the_facility = name_of_the_warafacility)
+
+```
+
+
+
+```{r, mutating names, include=FALSE}
+hcw_observations_df2 <- hcw_observations_df1 %>%
+  mutate(name_of_the_facility = name_of_the_facility %>%
+           str_to_lower() %>%
+           str_replace_all("dispensary|dispensay|disp", "") %>%
+           str_replace_all("h/c|health centre|health center|hc", "") %>%
+           str_replace_all("-", " ") %>%
+           str_squish() %>%
+           str_trim())
+```
+
+```{r, mutate health facilities, include=FALSE}
+data3 <- data3 %>%
+  mutate(name_of_the_facility = name_of_the_facility %>%
+           str_to_lower() %>%
+           str_replace_all("dispensary|dispensay|disp", "") %>%
+           str_replace_all("h/c|health centre|health center|hc", "") %>%
+           str_replace_all("-", " ") %>%
+           str_squish() %>%
+           str_trim())
+```
+
+```{r, include=FALSE}
+data3 <- data3 %>%
+  mutate(name_of_the_facility = case_when(
+    str_detect(name_of_the_facility, regex("njokini\\s*1", ignore_case = TRUE)) ~ "njokini",
+    str_detect(name_of_the_facility, regex("kagocho", ignore_case = TRUE)) ~ "kangocho",
+    str_detect(name_of_the_facility, regex("kiandere", ignore_case = TRUE)) ~ "kianderi",
+    TRUE ~ name_of_the_facility
+  ))
+
+
+hcw_observations_df2 <- hcw_observations_df2 %>%
+  mutate(name_of_the_facility = case_when(
+    str_detect(name_of_the_facility, "kiganjo.*college.*police|kiganjo.*police.*college") ~ "kiganjo police college",
+    str_detect(name_of_the_facility, "muthuth\\s?ini|muthuthi\\s?ini") ~ "muthuthini",
+    TRUE ~ name_of_the_facility
+  ))
+
+```
+
+```{r, include=FALSE}
+hcw_scores_summary <- hcw_observations_df2 %>%
+  group_by(name_of_the_facility) %>%
+  summarise(
+    total_score = mean(total_score, na.rm = TRUE),
+    percent_score = mean(percent_score, na.rm = TRUE),
+    assessment_quality = ifelse(mean(percent_score, na.rm = TRUE) >= 80, "Satisfactory", "Unsatisfactory"),
+    .groups = "drop"
+  )
+
+data_combined <- data3 %>%
+  left_join(hcw_scores_summary, by = "name_of_the_facility")
+
+
+```
+
+
+```{r, include=FALSE}
+# Clean and standardize 'cadre_of_hc_ws' values
+data_combined <- data_combined %>%
+  mutate(cadre_of_hc_ws = case_when(
+    tolower(cadre_of_hc_ws) == "nurse" ~ "Nurse",
+    tolower(cadre_of_hc_ws) == "clinical officer" ~ "Clinical Officer",
+    tolower(cadre_of_hc_ws) == "medical officer" ~ "Medical Officer",
+    TRUE ~ cadre_of_hc_ws  # Keep original if it doesn't match any
+  ))
+
+```
+
+
+```{r, carde vs assessment, include=TRUE}
+cadre_scores <- aggregate(total_score ~ cadre_of_hc_ws, data = data_combined, FUN = mean)
+
+# Create the horizontal bar plot
+ggplot(cadre_scores, aes(x = reorder(cadre_of_hc_ws, total_score), y = total_score)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Average Total Score by Cadre of Health Care Workers",
+    x = "Cadre of Health Care Workers",
+    y = "Average Total Score"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+```{r, include=FALSE}
+# Assuming `quality_score` is continuous
+kruskal.test(percent_score ~ duration_of_practise, data = data_combined)
+
+# Result Table for Duration of Practice
+kruskal_df1 <- data.frame(
+  `Kruskal-Wallis Statistic` = 5.4731,
+  `P-value` = 0.706,
+  `Degrees of Freedom` = 8,
+  Method = "Kruskal-Wallis rank sum test"
+)
+
+
+```
+
+```{r, include=TRUE}
+# Render Table
+kable(kruskal_df1, format = "html", caption = "Table 5: Kruskal-Wallis Test Results – Duration of Practice vs Percent Score") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center") %>%
+  footnote(general = "There is no statistically significant difference in percent scores across different durations of practice (p = 0.706).")
+```
+
+
+
+
+```{r,Table for Cadre, include=FALSE}
+kruskal.test(percent_score ~ cadre_of_hc_ws, data = data_combined)
+
+# Result Table for Cadre
+kruskal_df2 <- data.frame(
+  `Kruskal-Wallis Statistic` = 4.3809,
+  `P-value` = 0.2232,
+  `Degrees of Freedom` = 3,
+  Method = "Kruskal-Wallis rank sum test"
+)
+
+```
+
+```{r,include=TRUE}
+# Render Table
+kable(kruskal_df2, format = "html", caption = "Table 6: Kruskal-Wallis Test Results – Cadre of Healthcare Worker vs Percent Score") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center") %>%
+  footnote(general = "There is no statistically significant difference in percent scores between healthcare worker cadres (p = 0.223).")
+
+```
+
+
+
+```{r, include=FALSE}
+# 2. Wilcoxon Test
+wilcox_result1 <- wilcox.test(percent_score ~ Type_of_facility, 
+                              data = data_combined,
+                              exact = FALSE)
+
+
+# 3. Wilcoxon Result Table
+wilcox_df2 <- data.frame(
+  Statistic = wilcox_result1$statistic,
+  `P-value` = wilcox_result1$p.value,
+  `Alternative Hypothesis` = wilcox_result1$alternative,
+  Method = wilcox_result1$method
+)
+
+```
+
+```{r, Wilcoxon Rank Sum Test Results, include=TRUE}
+
+kable(wilcox_df2, format = "html", caption = "Table 4: Wilcoxon Rank Sum Test Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, 
+                position = "center") %>%
+  footnote(general = "There is no statistically significant difference in the percent scores between the two facility types (Health Centres vs. Dispensaries), p = 0.994.")
+
+```
+
+
+
+
+```{r, include=FALSE}
+# 2. Wilcoxon Test
+wilcox_result <- wilcox.test(percent_score ~ imci_trained, data = data_combined)
+
+# 3. Wilcoxon Result Table
+wilcox_df <- data.frame(
+  Statistic = wilcox_result$statistic,
+  `P-value` = wilcox_result$p.value,
+  `Alternative Hypothesis` = wilcox_result$alternative,
+  Method = wilcox_result$method
+)
+
+```
+
+```{r, Rank Sum Test Results, include=TRUE}
+kable(wilcox_df, format = "html", caption = "Table 5: Wilcoxon Rank Sum Test Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "center")
+```
+
+
+#A Wilcoxon rank sum test indicated that there was no significant difference in assessment scores between IMCI-trained and non-trained health workers, W = 175.5, p = .315.
+
+
+#OBJECTIVE2 ##To determine caregiver’s satisfaction with quality of care provided to their children. 
+
+```{r, include=FALSE}
+# Reliability
+reliability_expectation <- c(
+  "x1__reliability_i__to_what_extent_do_you_feel_like_your_child_will_be_seen_according_to_your_expectations",
+  "x1__reliability__ii__to_what_extent_do_you_feel_confident_that_your_child_s_problem_will_be_solved",
+  "x1__reliability__iii__to_what_extent_do_you_feel_confident_that_your_child_will_be_given_the_required_treatment"
+)
+reliability_perception <- c(
+  "x1__reliability_i__what_is_your_level_of_satisfaction_with_the_extent_to_which_your_expectations_with_regards_to_how_your_child_would__be_attended_to_were_met",
+  "x1__reliability__ii__what_is_your_level_of_satisfaction_with_the_extent_to_which_your_child_s_problem_was_solved",
+  "x1__reliability__iii__what_is_your_level_of_satisfaction_with_the_treatment_that_your_child_was_given_"
+)
+
+# Responsiveness
+responsiveness_expectation <- c(
+  "x2__responsiveness_i_to_what_extent_do_you_feel_like_the_healthcare_worker_will_give_you_prompt_attention",
+  "x2__responsiveness_ii_to_what_extent_do_you_feel_about_the_duration_of_waiting_before_being_attended_to",
+  "x2__responsiveness_iii__to_what_extent_do_you_feel_like_the_healthcare_workers_will_help_according_to_the_need_of_your_child"
+)
+responsiveness_perception <- c(
+  "x2__responsiveness_i_what_is_your_level_of_satisfaction_with_promptness_of_attention_given_to_you_and_your_child_by_the_healthcare_worker",
+  "x2__responsiveness_ii_what_is_the_level_of_satisfaction_with_the_duration_of_waiting_before_being_attended_to_by_the_health_care_worker",
+  "x2__responsiveness_iii__what_is_the_level_of_satisfaction_with_the_healthcare_workers_offering_help_according_to_the_need_of_your_child"
+)
+
+# Assurance
+assurance_expectation <- c(
+  "x3__assurance_i__to__what_extent_do_you_trust_in_the_services_you_will_receive_from_the_hospital_today",
+  "x3__assurance_ii__to_what_extent_do_you_feel__like_the_healthcare_workers_will_be_understanding__of_the_concerns_that__you_intend_to_share_about_your_child_",
+  "x3__assurance_iii_to_what_extent_do_you_feel_like_the_healthcare_worker_will_be_courteous_to_you"
+)
+assurance_perception <- c(
+  "x3__assurance_i__what_is_your_level_of_trust_in_the_services_that_you_have_received_from_the_hospital_today",
+  "x3__assurance_ii__what__is_your_level_of_satisfaction_with_the_extent_to_which_the_healthcare_workers_demonstrated_an_understanding_of_the_concerns_that__you_shared_about_your_child_",
+  "x3__assurance_iii_what__is_your_level_of_satisfaction_with_the_extent_to_which_the_healthcare_worker_s_showed_courteousness_to_you_and_your_child"
+)
+
+# Empathy
+empathy_expectation <- c(
+  "x4__empathy_i_to__what_extent_do_you_feel_like_the_healthcare_worker_will_be_caring",
+  "x4__empathy_ii_to_what_extent_do_you_feel_like_healthcare_worker_will_give_you_your_child_individual_attention_",
+  "x4__empathy_iii_to_what_extent_do_you_feel_like_the_healthcare_worker_will_handle_your_child_with_care_gentleness_compassion"
+)
+empathy_perception <- c(
+  "x4__empathy_i_what_is_your_level_of_satisfaction_with_the_extent_to__which_the_healthcare_worker_s_demonstrated_caring_to_you_and_your_child",
+  "x4__empathy_ii_what_is_your_level_of_satisfaction_with_the_extent_to_which_the_hospital_staff_gave_you_your_child_individual_attention_",
+  "x4__empathy_iii_what_is_your_level_of_satisfaction_with_the_extent_to_which_the_healthcare_worker_handled_your_child_with_care_gentleness_compassion"
+)
+
+# Tangibility
+tangibility_expectation <- c(
+  "tangibility_i_to_what_extent_do_you_think_you_will_be_satisfied_by_the_level_of_cleanliness_in_the_healthcare_workers_clinician__office_room_",
+  "tangibility_ii_to_what_extent_do_you_think_you_will_be_satisfied_by__health_facility_level_of_availability_of_standard_instruments_hospital_equipment_required_in_care_of_your_child",
+  "tangibility_iii_to_what_extent_do_you_think_the_prescription__treatment_plan_given_will_be_easy_to_understand"
+)
+tangibility_perception <- c(
+  "tangibility_i_what_is_your_level_of_satisfaction_with_the_cleanliness_of_the_healthcare_workers_clinician",
+  "tangibility_ii_to_what_extent_were_you_satisfied_by__health_facility_level_of_availability_of_standard_instruments_hospital_equipment_required_in_care_of_your_child",
+  "tangibility_iii_what_is_your_level_of_satisfaction_with_the_level_of_ease_to_understand_the_prescription_treatment_plan_given_by_the_healthcare_worker"
+)
+
+```
+
+
+
+```{r,reliability_df,include=FALSE}
+# Step 1: Prepare dataframe
+reliability_df <- df[, c("name_of_the_warafacility", reliability_expectation, reliability_perception)]
+
+# Step 2: Rename columns
+colnames(reliability_df) <- c(
+  "facility_name",
+  "expect_seen", "expect_resolution", "expect_treatment",
+  "perceive_seen", "perceive_resolution", "perceive_treatment"
+)
+
+# Step 3: Convert relevant columns to numeric
+reliability_df[, 2:7] <- lapply(reliability_df[, 2:7], function(x) as.numeric(as.character(x)))
+
+# Step 4: Compute indicator-level gaps
+reliability_df$gap_seen <- reliability_df$perceive_seen - reliability_df$expect_seen
+reliability_df$gap_resolution <- reliability_df$perceive_resolution - reliability_df$expect_resolution
+reliability_df$gap_treatment <- reliability_df$perceive_treatment - reliability_df$expect_treatment
+
+# Step 5: Compute totals for numeric columns
+numeric_cols <- reliability_df[, sapply(reliability_df, is.numeric)]
+totals_rel <- colSums(numeric_cols, na.rm = TRUE)
+
+# Step 6: Safe getter for totals
+safe_get <- function(vec, name) {
+  if (name %in% names(vec)) return(vec[[name]])
+  else return(NA)
+}
+
+# Step 7: Build tidy summary for visualization
+scores_rel <- data.frame(
+  Indicator = rep(c("Seen", "Problem Solved", "Treatment Given"), each = 3),
+  Type = rep(c("Perception", "Expectation", "Gap"), times = 3),
+  Score = c(
+    safe_get(totals_rel, "perceive_seen"),
+    safe_get(totals_rel, "expect_seen"),
+    safe_get(totals_rel, "gap_seen"),
+
+    safe_get(totals_rel, "perceive_resolution"),
+    safe_get(totals_rel, "expect_resolution"),
+    safe_get(totals_rel, "gap_resolution"),
+
+    safe_get(totals_rel, "perceive_treatment"),
+    safe_get(totals_rel, "expect_treatment"),
+    safe_get(totals_rel, "gap_treatment")
+  )
+)
+
+# Ensure correct order for plotting
+scores_rel$Type <- factor(scores_rel$Type, levels = c("Perception", "Expectation", "Gap"))
+
+# View summary dataframe
+scores_rel
+
+
+```
+
+
+
+```{r, Reliability Indicator,include=TRUE}
+ggplot(scores_rel, aes(x = Score, y = Indicator, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6) +
+  labs(
+    title = "Reliability: Perception vs Expectation vs Gap",
+    x = "Total Score",
+    y = "Reliability Indicator"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal(base_size = 14)
+
+
+
+```
+
+
+```{r, responsiveness, include=FALSE}
+# --- Step 1: Rename long column names for responsiveness ---
+
+names(df)[names(df) == "x2__responsiveness_i_to_what_extent_do_you_feel_like_the_healthcare_worker_will_give_you_prompt_attention"] <- "Promptness expected"
+names(df)[names(df) == "x2__responsiveness_ii_to_what_extent_do_you_feel_about_the_duration_of_waiting_before_being_attended_to"] <- "Wait time expected"
+names(df)[names(df) == "x2__responsiveness_iii__to_what_extent_do_you_feel_like_the_healthcare_workers_will_help_according_to_the_need_of_your_child"] <- "Help expected"
+
+names(df)[names(df) == "x2__responsiveness_i_what_is_your_level_of_satisfaction_with_promptness_of_attention_given_to_you_and_your_child_by_the_healthcare_worker"] <- "Promptness rating"
+names(df)[names(df) == "x2__responsiveness_ii_what_is_the_level_of_satisfaction_with_the_duration_of_waiting_before_being_attended_to_by_the_health_care_worker"] <- "Wait time rating"
+names(df)[names(df) == "x2__responsiveness_iii__what_is_the_level_of_satisfaction_with_the_healthcare_workers_offering_help_according_to_the_need_of_your_child"] <- "Help rating"
+
+# --- Step 2: Create responsiveness_df with relevant columns ---
+
+responsiveness_df <- df[, c("name_of_the_warafacility",
+                            "Promptness expected", "Wait time expected", "Help expected",
+                            "Promptness rating", "Wait time rating", "Help rating")]
+
+# --- Step 3: Convert relevant columns to numeric ---
+
+responsiveness_df[, 2:7] <- lapply(responsiveness_df[, 2:7], function(x) as.numeric(as.character(x)))
+
+# --- Step 4: Calculate indicator-level gaps ---
+
+responsiveness_df$Gap_promptness <- responsiveness_df[["Promptness rating"]] - responsiveness_df[["Promptness expected"]]
+responsiveness_df$Gap_waittime   <- responsiveness_df[["Wait time rating"]]  - responsiveness_df[["Wait time expected"]]
+responsiveness_df$Gap_help       <- responsiveness_df[["Help rating"]]       - responsiveness_df[["Help expected"]]
+
+# --- Step 5: Compute column totals ---
+
+numeric_cols_resp <- responsiveness_df[, sapply(responsiveness_df, is.numeric)]
+totals_resp <- colSums(numeric_cols_resp, na.rm = TRUE)
+
+# --- Step 6: Safe extractor function ---
+
+safe_get <- function(vec, name) {
+  if (name %in% names(vec)) return(vec[[name]]) else return(NA)
+}
+
+# --- Step 7: Create tidy scores_responsiveness dataframe ---
+
+scores_responsiveness <- data.frame(
+  Indicator = rep(c("Promptness", "Wait Time", "Helpfulness"), each = 3),
+  Type = factor(rep(c("Perception", "Expectation", "Gap"), times = 3),
+                levels = c("Perception", "Expectation", "Gap")),
+  Score = c(
+    safe_get(totals_resp, "Promptness rating"),
+    safe_get(totals_resp, "Promptness expected"),
+    safe_get(totals_resp, "Gap_promptness"),
+
+    safe_get(totals_resp, "Wait time rating"),
+    safe_get(totals_resp, "Wait time expected"),
+    safe_get(totals_resp, "Gap_waittime"),
+
+    safe_get(totals_resp, "Help rating"),
+    safe_get(totals_resp, "Help expected"),
+    safe_get(totals_resp, "Gap_help")
+  )
+)
+
+# --- Step 8: Visualize with ggplot2 ---
+
+
+```
+
+```{r,Responsiveness Indicator, include=TRUE}
+ggplot(scores_responsiveness, aes(x = Score, y = Indicator, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6) +
+  labs(
+    title = "Responsiveness: Perception vs Expectation vs Gap",
+    x = "Total Score",
+    y = "Responsiveness Indicator"
+  ) +
+  scale_fill_brewer(palette = "Set2") +  # <-- Match colors to Assurance plot
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    legend.title = element_blank()
+  )
+
+```
+
+
+
+```{r,ssuranc_ndicator,include=FALSE}
+# --- Step 1: Rename long column names in df to shorter names for assurance ---
+
+names(df)[names(df) == "x3__assurance_i__to__what_extent_do_you_trust_in_the_services_you_will_receive_from_the_hospital_today"] <- "Trust expected"
+names(df)[names(df) == "x3__assurance_ii__to_what_extent_do_you_feel__like_the_healthcare_workers_will_be_understanding__of_the_concerns_that__you_intend_to_share_about_your_child_"] <- "Understanding expected"
+names(df)[names(df) == "x3__assurance_iii_to_what_extent_do_you_feel_like_the_healthcare_worker_will_be_courteous_to_you"] <- "Courtesy expected"
+
+names(df)[names(df) == "x3__assurance_i__what_is_your_level_of_trust_in_the_services_that_you_have_received_from_the_hospital_today"] <- "Trust rating"
+names(df)[names(df) == "x3__assurance_ii__what__is_your_level_of_satisfaction_with_the_extent_to_which_the_healthcare_workers_demonstrated_an_understanding_of_the_concerns_that__you_shared_about_your_child_"] <- "Understanding rating"
+names(df)[names(df) == "x3__assurance_iii_what__is_your_level_of_satisfaction_with_the_extent_to_which_the_healthcare_worker_s_showed_courteousness_to_you_and_your_child"] <- "Courtesy rating"
+
+# --- Step 2: Create assurance_df with relevant columns ---
+
+assurance_df <- df[, c("name_of_the_warafacility",
+                       "Trust expected", "Understanding expected", "Courtesy expected",
+                       "Trust rating", "Understanding rating", "Courtesy rating")]
+
+# --- Step 3: Convert to numeric (except facility name) ---
+
+assurance_df[, 2:7] <- lapply(assurance_df[, 2:7], function(x) as.numeric(as.character(x)))
+
+# --- Step 4: Calculate indicator-level gaps ---
+
+assurance_df$Gap_trust        <- assurance_df[["Trust rating"]]        - assurance_df[["Trust expected"]]
+assurance_df$Gap_understanding <- assurance_df[["Understanding rating"]] - assurance_df[["Understanding expected"]]
+assurance_df$Gap_courtesy     <- assurance_df[["Courtesy rating"]]     - assurance_df[["Courtesy expected"]]
+
+# --- Step 5: Compute column totals (for plotting/reporting) ---
+
+numeric_cols_assurance <- assurance_df[, sapply(assurance_df, is.numeric)]
+totals_assurance <- colSums(numeric_cols_assurance, na.rm = TRUE)
+
+# --- Step 6: Safe extractor function ---
+
+safe_get <- function(vec, name) {
+  if (name %in% names(vec)) return(vec[[name]]) else return(NA)
+}
+
+# --- Step 7: Create tidy scores_assur dataframe ---
+
+scores_assur <- data.frame(
+  Indicator = rep(c("Trust", "Understanding", "Courtesy"), each = 3),
+  Type = factor(rep(c("Perception", "Expectation", "Gap"), times = 3),
+                levels = c("Perception", "Expectation", "Gap")),
+  Score = c(
+    safe_get(totals_assurance, "Trust rating"),
+    safe_get(totals_assurance, "Trust expected"),
+    safe_get(totals_assurance, "Gap_trust"),
+
+    safe_get(totals_assurance, "Understanding rating"),
+    safe_get(totals_assurance, "Understanding expected"),
+    safe_get(totals_assurance, "Gap_understanding"),
+
+    safe_get(totals_assurance, "Courtesy rating"),
+    safe_get(totals_assurance, "Courtesy expected"),
+    safe_get(totals_assurance, "Gap_courtesy")
+  )
+)
+
+# --- Optional: View the scores table ---
+print(scores_assur)
+
+```
+
+```{r,Assurance Indicator,include=TRUE}
+ggplot(scores_assur, aes(x = Score, y = Indicator, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6) +
+  labs(
+    title = "Assurance: Perception vs Expectation vs Gap",
+    x = "Total Score",
+    y = "Assurance Indicator"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    legend.title = element_blank()
+  )
+
+```
+
+
+```{r, include=FALSE}
+# --- Step 1: Rename long column names in df to shorter names for empathy ---
+
+names(df)[names(df) == "x4__empathy_i_to__what_extent_do_you_feel_like_the_healthcare_worker_will_be_caring"] <- "Caring expected"
+names(df)[names(df) == "x4__empathy_ii_to_what_extent_do_you_feel_like_healthcare_worker_will_give_you_your_child_individual_attention_"] <- "Attention expected"
+names(df)[names(df) == "x4__empathy_iii_to_what_extent_do_you_feel_like_the_healthcare_worker_will_handle_your_child_with_care_gentleness_compassion"] <- "Gentleness expected"
+
+names(df)[names(df) == "x4__empathy_i_what_is_your_level_of_satisfaction_with_the_extent_to__which_the_healthcare_worker_s_demonstrated_caring_to_you_and_your_child"] <- "Caring rating"
+names(df)[names(df) == "x4__empathy_ii_what_is_your_level_of_satisfaction_with_the_extent_to_which_the_hospital_staff_gave_you_your_child_individual_attention_"] <- "Attention rating"
+names(df)[names(df) == "x4__empathy_iii_what_is_your_level_of_satisfaction_with_the_extent_to_which_the_healthcare_worker_handled_your_child_with_care_gentleness_compassion"] <- "Gentleness rating"
+
+# --- Step 2: Create empathy_df with relevant columns ---
+
+empathy_df <- df[, c("name_of_the_warafacility",
+                     "Caring expected", "Attention expected", "Gentleness expected",
+                     "Caring rating", "Attention rating", "Gentleness rating")]
+
+# --- Step 3: Convert to numeric (except facility name) ---
+
+empathy_df[, 2:7] <- lapply(empathy_df[, 2:7], function(x) as.numeric(as.character(x)))
+
+# --- Step 4: Calculate indicator-level gaps ---
+
+empathy_df$Gap_caring     <- empathy_df[["Caring rating"]]    - empathy_df[["Caring expected"]]
+empathy_df$Gap_attention  <- empathy_df[["Attention rating"]] - empathy_df[["Attention expected"]]
+empathy_df$Gap_gentleness <- empathy_df[["Gentleness rating"]] - empathy_df[["Gentleness expected"]]
+
+# --- Step 5: Compute column totals (for plotting/reporting) ---
+
+numeric_cols_empathy <- empathy_df[, sapply(empathy_df, is.numeric)]
+totals_empathy <- colSums(numeric_cols_empathy, na.rm = TRUE)
+
+# --- Step 6: Safe extractor function (if reused) ---
+
+safe_get <- function(vec, name) {
+  if (name %in% names(vec)) return(vec[[name]]) else return(NA)
+}
+
+# --- Step 7: Create tidy scores_empathy dataframe ---
+
+scores_empathy <- data.frame(
+  Indicator = rep(c("Caring", "Attention", "Gentleness"), each = 3),
+  Type = factor(rep(c("Perception", "Expectation", "Gap"), times = 3),
+                levels = c("Perception", "Expectation", "Gap")),
+  Score = c(
+    safe_get(totals_empathy, "Caring rating"),
+    safe_get(totals_empathy, "Caring expected"),
+    safe_get(totals_empathy, "Gap_caring"),
+
+    safe_get(totals_empathy, "Attention rating"),
+    safe_get(totals_empathy, "Attention expected"),
+    safe_get(totals_empathy, "Gap_attention"),
+
+    safe_get(totals_empathy, "Gentleness rating"),
+    safe_get(totals_empathy, "Gentleness expected"),
+    safe_get(totals_empathy, "Gap_gentleness")
+  )
+)
+
+# --- Optional: View the scores table ---
+print(scores_empathy)
+
+```
+
+```{r,Empathy Indicator, include=TRUE}
+ggplot(scores_empathy, aes(x = Score, y = Indicator, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6) +
+  labs(
+    title = "Empathy: Perception vs Expectation vs Gap",
+    x = "Total Score",
+    y = "Empathy Indicator"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal(base_size = 14)
+
+```
+
+
+```{r, tangibility, include=FALSE}
+# --- Step 1: Rename long tangibility column names to short ones ---
+
+names(df)[names(df) == "tangibility_i_to_what_extent_do_you_think_you_will_be_satisfied_by_the_level_of_cleanliness_in_the_healthcare_workers_clinician__office_room_"] <- "Cleanliness expected"
+names(df)[names(df) == "tangibility_ii_to_what_extent_do_you_think_you_will_be_satisfied_by__health_facility_level_of_availability_of_standard_instruments_hospital_equipment_required_in_care_of_your_child"] <- "Equipment expected"
+names(df)[names(df) == "tangibility_iii_to_what_extent_do_you_think_the_prescription__treatment_plan_given_will_be_easy_to_understand"] <- "Clear treatment"
+
+names(df)[names(df) == "tangibility_i_what_is_your_level_of_satisfaction_with_the_cleanliness_of_the_healthcare_workers_clinician"] <- "Cleanliness rating"
+names(df)[names(df) == "tangibility_ii_to_what_extent_were_you_satisfied_by__health_facility_level_of_availability_of_standard_instruments_hospital_equipment_required_in_care_of_your_child"] <- "Equipment rating"
+names(df)[names(df) == "tangibility_iii_what_is_your_level_of_satisfaction_with_the_level_of_ease_to_understand_the_prescription_treatment_plan_given_by_the_healthcare_worker"] <- "Treatment clarity"
+
+# --- Step 2: Create tangibility_df with selected short-named columns ---
+
+tangibility_df <- df[, c("name_of_the_warafacility",
+                         "Cleanliness expected", "Equipment expected", "Clear treatment",
+                         "Cleanliness rating", "Equipment rating", "Treatment clarity")]
+
+# --- Step 3: Convert relevant columns to numeric (except facility name) ---
+
+tangibility_df[, 2:7] <- lapply(tangibility_df[, 2:7], function(x) as.numeric(as.character(x)))
+
+# --- Step 4: Compute indicator-level gaps ---
+
+tangibility_df$Gap_cleanliness <- tangibility_df[["Cleanliness rating"]] - tangibility_df[["Cleanliness expected"]]
+tangibility_df$Gap_equipment   <- tangibility_df[["Equipment rating"]]   - tangibility_df[["Equipment expected"]]
+tangibility_df$Gap_treatment   <- tangibility_df[["Treatment clarity"]]  - tangibility_df[["Clear treatment"]]
+
+# --- Step 5: Compute column totals (for plotting) ---
+
+numeric_cols_tan <- tangibility_df[, sapply(tangibility_df, is.numeric)]
+totals_tan <- colSums(numeric_cols_tan, na.rm = TRUE)
+
+# --- Step 6: Safe extractor function ---
+
+safe_get <- function(vec, name) {
+  if (name %in% names(vec)) return(vec[[name]]) else return(NA)
+}
+# --- Create tidy scores_tan dataframe with clean indicator names ---
+
+scores_tan <- data.frame(
+  Indicator = rep(c("Cleanliness", "Equipment", "Treatment"), each = 3),
+  Type = factor(rep(c("Perception", "Expectation", "Gap"), times = 3),
+                levels = c("Perception", "Expectation", "Gap")),
+  Score = c(
+    safe_get(totals_tan, "Cleanliness rating"),
+    safe_get(totals_tan, "Cleanliness expected"),
+    safe_get(totals_tan, "Gap_cleanliness"),
+
+    safe_get(totals_tan, "Equipment rating"),
+    safe_get(totals_tan, "Equipment expected"),
+    safe_get(totals_tan, "Gap_equipment"),
+
+    safe_get(totals_tan, "Treatment clarity"),
+    safe_get(totals_tan, "Clear treatment"),
+    safe_get(totals_tan, "Gap_treatment")
+  )
+)
+
+# --- View the cleaned-up output ---
+print(scores_tan)
+
+```
+
+
+```{r tangibility plot, include=TRUE}
+ggplot(scores_tan, aes(x = Score, y = Indicator, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6) +
+  labs(
+    title = " Tangibity Perception vs Expectation vs Gap",
+    x = "Total Score",
+    y = "Tangibility Indicator"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal(base_size = 14)
+
+```
+
+
+
+```{r, include=FALSE}
+# Step 1: Add domain labels to each score dataframe
+scores_rel$Domain     <- "Reliability"
+scores_responsiveness$Domain    <- "Responsive"
+scores_assur$Domain   <- "Assurance"
+scores_empathy$Domain <- "Empathy"
+scores_tan$Domain     <- "Tangibility"
+
+# Step 2: Combine all score dataframes
+combined_scores <- bind_rows(
+  scores_rel,
+  scores_responsiveness,
+  scores_assur,
+  scores_empathy,
+  scores_tan
+)
+
+```
+
+
+```{r,Perception vs Expectation vs Gap Across Quality Domains, include=TRUE}
+
+# Step 3: Plot the combined bar chart with adjusted titles
+ggplot(combined_scores, aes(x = Score, y = Indicator, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7), width = 0.6) +
+  facet_wrap(~ Domain, scales = "free_y") +  # free_y to accommodate different indicator labels
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Perception vs Expectation vs Gap Across Quality Domains",
+    x = "Total Score",
+    y = "Indicator"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold", size = 14),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    legend.position = "bottom"
+  )
+
+```
+
+```{r, include=FALSE}
+
+# Compute mean scores per Type for each dimension
+mean_score_rel <- scores_rel %>%
+  group_by(Type) %>%
+  summarise(Mean_Score = mean(Score, na.rm = TRUE)) %>%
+  mutate(Dimension = "Reliability")
+
+mean_score_res <- scores_responsiveness %>%
+  group_by(Type) %>%
+  summarise(Mean_Score = mean(Score, na.rm = TRUE)) %>%
+  mutate(Dimension = "Responsiveness")
+
+mean_score_emp <- scores_empathy %>%
+  group_by(Type) %>%
+  summarise(Mean_Score = mean(Score, na.rm = TRUE)) %>%
+  mutate(Dimension = "Empathy")
+
+mean_score_ass <- scores_assur %>%
+  group_by(Type) %>%
+  summarise(Mean_Score = mean(Score, na.rm = TRUE)) %>%
+  mutate(Dimension = "Assurance")
+
+mean_score_tan <- scores_tan %>%
+  group_by(Type) %>%
+  summarise(Mean_Score = mean(Score, na.rm = TRUE)) %>%
+  mutate(Dimension = "Tangibility")
+
+```
+
+
+```{r, include=FALSE}
+# Combine all into one long dataframe
+mean_scores_all <- bind_rows(
+  mean_score_rel,
+  mean_score_res,
+  mean_score_emp,
+  mean_score_ass,
+  mean_score_tan
+) %>%
+  select(Dimension, Type,Mean_Score)
+
+
+mean_scores_wide <- mean_scores_all %>%
+  pivot_wider(names_from = Type, values_from = Mean_Score) %>%
+  select(Dimension, Perception, Expectation, Gap)  # reorder columns
+
+
+```
+
+
+```{r, include=TRUE}
+mean_scores_wide %>%
+  mutate(across(where(is.numeric), ~ round(.x, 1))) %>%
+  kable(format = "html", caption = "Table : caregiver’s satisfaction with quality of care provided to their children") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, 
+                position = "center")
+
+```
+
+
+```{r combined dimension plot, include=TRUE}
+
+mean_scores_long <- mean_scores_wide %>%
+  pivot_longer(cols = c(Perception, Expectation, Gap), 
+               names_to = "Type", 
+               values_to = "Score")
+
+# Set the desired order of bar types
+mean_scores_long$Type <- factor(mean_scores_long$Type, levels = c("Gap","Expectation","Perception"))
+
+# Create horizontal bar plot with desired order
+ggplot(mean_scores_long, aes(x = Dimension, y = Score, fill = Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  labs(title = "Mean Scores by Dimension and Type",
+       x = "Service Quality Dimension",
+       y = "Mean Score",
+       fill = "Type") +
+  theme_minimal()
+
+```
+
+```{r, merge, include=FALSE}
+# Step 1: Rename 'facility_name' to 'name_of_the_warafacility' where needed
+colnames(assurance_df)[colnames(assurance_df) == "facility_name"] <- "name_of_the_warafacility"
+colnames(empathy_df)[colnames(empathy_df) == "facility_name"] <- "name_of_the_warafacility"
+colnames(reliability_df)[colnames(reliability_df) == "facility_name"] <- "name_of_the_warafacility"
+colnames(responsiveness_df)[colnames(responsiveness_df) == "facility_name"] <- "name_of_the_warafacility"
+
+# Step 2: Reorder columns to put 'name_of_the_warafacility' first
+assurance_df <- assurance_df[, c("name_of_the_warafacility", setdiff(colnames(assurance_df), "name_of_the_warafacility"))]
+empathy_df <- empathy_df[, c("name_of_the_warafacility", setdiff(colnames(empathy_df), "name_of_the_warafacility"))]
+reliability_df <- reliability_df[, c("name_of_the_warafacility", setdiff(colnames(reliability_df), "name_of_the_warafacility"))]
+responsiveness_df <- responsiveness_df[, c("name_of_the_warafacility", setdiff(colnames(responsiveness_df), "name_of_the_warafacility"))]
+tangibility_df <- tangibility_df[, c("name_of_the_warafacility", setdiff(colnames(tangibility_df), "name_of_the_warafacility"))]
+
+# Step 3: Merge all dataframes step-by-step by 'name_of_the_warafacility'
+df_merged <- merge(reliability_df, responsiveness_df, by = "name_of_the_warafacility", all = TRUE)
+df_merged <- merge(df_merged, assurance_df, by = "name_of_the_warafacility", all = TRUE)
+df_merged <- merge(df_merged, empathy_df, by = "name_of_the_warafacility", all = TRUE)
+df_merged <- merge(df_merged, tangibility_df, by = "name_of_the_warafacility", all = TRUE)
+
+# Step 4: Preview result
+head(df_merged)
+
+```
+
+```{r,dimension, include=FALSE}
+# Step 1: C
+servqual_means <- data.frame(
+  name_of_the_warafacility = df_merged$name_of_the_warafacility,
+
+  # Expectation means
+  reliability_exp = rowMeans(df_merged[, c("expect_seen", "expect_resolution", "expect_treatment")], na.rm = TRUE),
+  responsiveness_exp = rowMeans(df_merged[, c("Promptness expected", "Wait time expected", "Help expected")], na.rm = TRUE),
+  assurance_exp = rowMeans(df_merged[, c("Trust expected", "Understanding expected", "Courtesy expected")], na.rm = TRUE),
+  empathy_exp = rowMeans(df_merged[, c("Caring expected", "Attention expected", "Gentleness expected")], na.rm = TRUE),
+  tangibility_exp = rowMeans(df_merged[, c("Cleanliness expected", "Equipment expected", "Clear treatment")], na.rm = TRUE),
+
+  # Perception means
+  reliability_sat = rowMeans(df_merged[, c("perceive_seen", "perceive_resolution", "perceive_treatment")], na.rm = TRUE),
+  responsiveness_sat = rowMeans(df_merged[, c("Promptness rating", "Wait time rating", "Help rating")], na.rm = TRUE),
+  assurance_sat = rowMeans(df_merged[, c("Trust rating", "Understanding rating", "Courtesy rating")], na.rm = TRUE),
+  empathy_sat = rowMeans(df_merged[, c("Caring rating", "Attention rating", "Gentleness rating")], na.rm = TRUE),
+  tangibility_sat = rowMeans(df_merged[, c("Cleanliness rating", "Equipment rating", "Treatment clarity")], na.rm = TRUE)
+)
+
+```
+
+
+```{r,include=FALSE}
+# Step 2: Compute the SERVQUAL gap
+servqual_means <- servqual_means %>%
+  mutate(
+    reliability_gap = reliability_sat - reliability_exp,
+    responsiveness_gap = responsiveness_sat - responsiveness_exp,
+    assurance_gap = assurance_sat - assurance_exp,
+    empathy_gap = empathy_sat - empathy_exp,
+    tangibility_gap = tangibility_sat - tangibility_exp
+  )
+
+# Step 3: Prepare data for plotting
+gap_long <- servqual_means %>%
+  select(name_of_the_warafacility, ends_with("_gap")) %>%
+  pivot_longer(
+    cols = -name_of_the_warafacility,
+    names_to = "dimension",
+    values_to = "gap"
+  )
+
+# Clean dimension names
+gap_long$dimension <- str_replace(gap_long$dimension, "_gap", "")
+
+
+```
+
+```{r,SERVQUAL Gap per Dimension, include=TRUE}
+# Step 4: Plot
+ggplot(gap_long, aes(x = dimension, y = gap, fill = dimension)) +
+  geom_boxplot() +
+  labs(
+    title = "SERVQUAL Gap per Dimension",
+    x = "SERVQUAL Dimension",
+    y = "Satisfaction - Expectation Gap"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+
+```{r,Check for duplicates, include=FALSE}
+# Check for duplicates in servqual_means
+servqual_means %>%
+  count(name_of_the_warafacility) %>%
+  filter(n > 1)
+
+```
+
+```{r, servqual, include=FALSE}
+servqual_summary <- servqual_means %>%
+  group_by(name_of_the_warafacility) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+
+
+```
+
+```{r, combining data, include=FALSE}
+combined_df <- caregiver_df %>%
+  left_join(servqual_summary, by = "name_of_the_warafacility")
+
+```
+
+
+
+```{r,include=FALSE}
+care_df <- combined_df %>%
+  select(
+    -timestamp,
+    -date,
+    -time,
+    -occupation,
+    -relationship_to_the_child,
+    -`do_you_have_the_social_health_insurance_sha_`,
+    -`do_you_have_any_health_insurance_other_than_the_sha`,
+    -`if_the_answer_is_no_to_either_of_the_above_2_questions__what_is_the_reason`
+  )
+```
+
+
+
+
+```{r,include=FALSE}
+# Step 1: Clean up whitespace and case
+care_df <- care_df %>%
+  mutate(name_of_the_warafacility = str_to_lower(str_trim(name_of_the_warafacility)))
+
+# Step 2: Standardize known variants
+care_df <- care_df %>%
+  mutate(name_of_the_warafacility = case_when(
+    str_detect(name_of_the_warafacility, "kiganjo.*dispensary") ~ "kiganjo police college dispensary",
+    str_detect(name_of_the_warafacility, "muthuth.*dispens")     ~ "muthuthi-ini dispensary",
+    str_detect(name_of_the_warafacility, "kamoko.*dispensary")   ~ "kamoko dispensary",
+    str_detect(name_of_the_warafacility, "ndimaini.*dispensary") ~ "ndimaini dispensary",
+    str_detect(name_of_the_warafacility, "nyaribo.*dispensary")  ~ "nyaribo dispensary",
+    str_detect(name_of_the_warafacility, "ruruguti.*dispensary") ~ "ruruguti dispensary",
+    TRUE ~ name_of_the_warafacility  # default: keep as is
+  ))
+
+# Step 3: Optional - Convert to title case for final appearance
+care_df <- care_df %>%
+  mutate(name_of_the_warafacility = str_to_title(name_of_the_warafacility))
+
+```
+
+```{r,include=FALSE}
+# Reliability
+t_reliability <- t.test(care_df$reliability_sat, care_df$reliability_exp, paired = TRUE)
+
+# Responsiveness
+t_responsiveness <- t.test(care_df$responsiveness_sat, care_df$responsiveness_exp, paired = TRUE)
+
+# Assurance
+t_assurance <- t.test(care_df$assurance_sat, care_df$assurance_exp, paired = TRUE)
+
+# Empathy
+t_empathy <- t.test(care_df$empathy_sat, care_df$empathy_exp, paired = TRUE)
+
+# Tangibility
+t_tangibility <- t.test(care_df$tangibility_sat, care_df$tangibility_exp, paired = TRUE)
+
+
+```
+
+```{r,include=FALSE}
+list(
+  Reliability = t_reliability,
+  Responsiveness = t_responsiveness,
+  Assurance = t_assurance,
+  Empathy = t_empathy,
+  Tangibility = t_tangibility
+)
+
+```
+
+```{r,include=FALSE}
+# Summary table (reuse or recreate)
+summary_table <- data.frame(
+  Dimension = c("Reliability", "Responsiveness", "Assurance", "Empathy", "Tangibility"),
+  `p-value` = signif(c(
+    t_reliability$p.value,
+    t_responsiveness$p.value,
+    t_assurance$p.value,
+    t_empathy$p.value,
+    t_tangibility$p.value
+  ), 3),
+  `Lower_CI` = round(c(
+    t_reliability$conf.int[1],
+    t_responsiveness$conf.int[1],
+    t_assurance$conf.int[1],
+    t_empathy$conf.int[1],
+    t_tangibility$conf.int[1]
+  ), 3),
+  `Upper_CI` = round(c(
+    t_reliability$conf.int[2],
+    t_responsiveness$conf.int[2],
+    t_assurance$conf.int[2],
+    t_empathy$conf.int[2],
+    t_tangibility$conf.int[2]
+  ), 3)
+)
+
+```
+
+```{r,paired t-test, include=TRUE}
+# Display with caption and footnotes
+summary_table %>%
+  kable(format = "html", caption = "Table 6: Paired t-test Results for SERVQUAL Dimensions") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  footnote(
+    general = c(
+      "A paired t-test was conducted to compare caregiver expectations and satisfaction across each SERVQUAL dimension.",
+      "Statistically significant differences were observed in Reliability, Responsiveness, Assurance, and Empathy (p < 0.05), indicating gaps between expectation and perceived service.",
+      "Tangibility did not show a statistically significant difference, suggesting caregivers’ expectations closely matched their experience in that area."
+    ),
+    general_title = "Notes:"
+  )
+```
+
+
+
+# objective3
+
+```{r,include=FALSE}
+colnames(care_df)[colnames(care_df) == "name_of_the_warafacility"] <- "name_of_the_facility"
+
+data_combined_selected <- data_combined %>%
+  select(name_of_the_facility, total_score, percent_score)
+```
+
+
+```{r, include=FALSE}
+# Step 1: Clean & standardize facility names in both dataframes
+care_df <- care_df %>%
+  mutate(name_of_the_facility = name_of_the_facility %>%
+           str_to_lower() %>%
+           str_replace_all(" dispensary| health centre| h/c", "") %>%
+           str_squish())
+
+data_combined_selected <- data_combined_selected %>%
+  mutate(name_of_the_facility = name_of_the_facility %>%
+           str_to_lower() %>%
+           str_squish())
+
+# Step 2: Merge using standardized facility names
+finale_df <- left_join(care_df, data_combined_selected, by = "name_of_the_facility")
+
+```
+
+```{r,overall_satisfaction, include=FALSE}
+# Create overall_satisfaction in finale_df
+finale_df <- finale_df %>%
+  mutate(overall_satisfaction = rowMeans(select(., ends_with("_sat")), na.rm = TRUE))
+
+```
+
+```{r,Pearson correlation,include=FALSE}
+# Run correlation test
+cor_result <- cor.test(finale_df$overall_satisfaction, finale_df$percent_score, 
+                       use = "complete.obs", method = "pearson")
+
+```
+
+```{r,include=FALSE}
+# Create summary dataframe
+cor_df <- data.frame(
+  Statistic = round(c(cor_result$estimate, cor_result$statistic), 3),
+  `Lower_CI` = round(c(cor_result$conf.int[1], NA), 3),
+  `Upper_CI` = round(c(cor_result$conf.int[2], NA), 3),
+  `p-value` = c(signif(cor_result$p.value, 3), NA),
+  row.names = c("Correlation Coefficient (r)", "t-statistic")
+)
+
+```
+
+```{r, corr results,include=TRUE}
+# Display using kable with explanatory footnote
+kable(cor_df, format = "html", caption = "Table: Pearson Correlation Between Satisfaction and Clinical Quality") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "center") %>%
+  footnote(
+    general = "There is a statistically significant positive correlation (r = 0.33, p < 0.001) between caregiver satisfaction and quality of clinical assessment. This suggests that higher caregiver satisfaction is moderately associated with better clinical assessment quality.",
+    general_title = "Finding:"
+  )
+```
+
+
+
