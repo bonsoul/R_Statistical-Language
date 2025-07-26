@@ -1,0 +1,168 @@
+---
+title: "DR.OMOLLO"
+author: "Bonsoul"
+date: "2025-07-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, required packages}
+library(e1071)
+```
+
+```{r, create dataframe}
+df <- data.frame(
+  class = c("60-62", "63-65", "66-68", "69-71", "72-74"),
+  freq = c(5, 18, 42, 27, 8),
+  lower = c(60, 63, 66, 69, 72),
+  upper = c(62, 65, 68, 71, 74)
+)
+```
+
+```{r,Add midpoint and cumulative frequency}
+df$midpoint <- (df$lower + df$upper) / 2
+df$cum_freq <- cumsum(df$freq)
+```
+
+```{r,mean}
+total_freq <- sum(df$freq)
+df$fx <- df$freq * df$midpoint
+mean_val <- sum(df$fx) / total_freq
+
+```
+
+```{r,Calculate standard deviation}
+df$fx2 <- df$freq * (df$midpoint - mean_val)^2
+variance <- sum(df$fx2) / total_freq
+std_dev <- sqrt(variance)
+```
+
+
+```{r,Calculate median using grouped formula}
+n <- total_freq
+median_class_index <- which(df$cum_freq >= n / 2)[1]
+L <- df$lower[median_class_index] - 0.5
+F <- ifelse(median_class_index == 1, 0, df$cum_freq[median_class_index - 1])
+f_median <- df$freq[median_class_index]
+class_width <- df$upper[median_class_index] - df$lower[median_class_index] + 1
+
+median_val <- L + ((n/2 - F) / f_median) * class_width
+```
+
+```{r, skewness}
+skewness_val <- 3 * (mean_val - median_val) / std_dev
+```
+
+```{r, results}
+cat("Grouped Data Frame:\n")
+print(df)
+
+cat("\nResults:\n")
+cat("Mean:", round(mean_val, 2), "\n")
+cat("Median:", round(median_val, 2), "\n")
+cat("Standard Deviation:", round(std_dev, 2), "\n")
+cat("Skewness:", round(skewness_val, 3), "\n")
+```
+
+```{r}
+n <- 5
+p <- 0.7
+```
+
+```{r}
+prob_3 <- dbinom(3, size= n, prob = p)
+```
+
+```{r}
+cat("P(exactly 3 recover):", round(prob_3, 4), "\n")
+```
+```{r}
+n1 <- 20
+p1 <- 0.85
+```
+
+```{r}
+prob_18 <- dbinom(18,size= n1, prob = p1)
+prob_19 <- dbinom(19,size = n1, prob = p1)
+prob_20 <- dbinom(20,size = n1, prob = p1)
+```
+
+```{r}
+prob_at_least_18 <- prob_18 + prob_19 + prob_20
+```
+
+```{r}
+cat("p at least 18 immune :", round(prob_at_least_18,4), "\n")
+```
+
+
+```{r}
+n2 <- 12
+p2 <- 0.25
+```
+
+```{r}
+prob_3 <- dbinom(3, size = n2, prob = p2 )
+```
+
+```{r}
+cat("probability:",round(prob_3,4),"/n")
+```
+
+#poisson distribution
+
+```{r}
+lam <- 3
+k <- 5
+```
+
+```{r}
+prob_5 <- dpois(k, lambda = lam)
+```
+
+```{r}
+cat("P(exactly 5 admissions:", round(prob_5,4), "\n")
+```
+
+#atleast class
+
+```{r}
+lambda <- 10
+x <- 7
+```
+
+```{r}
+prob_less_than_8 <- ppois(x, lambda = lambda)
+```
+
+```{r}
+cat("P(fewer than 8 surgeries):", round(prob_less_than_8, 4), "\n")
+```
+
+#normal distribution
+
+```{r}
+mu <- 30
+sigma <- 5
+
+# P(26 <= X <= 40)
+p <- pnorm(40, mean = mu, sd = sigma) - pnorm(26, mean = mu, sd = sigma)
+
+cat("P(26 ≤ X ≤ 40):", round(p, 4), "\n")
+
+```
+
+
+```{r}
+mu <- 200
+sigma <- 20
+```
+
+```{r}
+p <- 1 - pnorm(240, mean = mu, sd = sigma)
+cat("p(x > 240:", round(p, 4), "\n")
+```
