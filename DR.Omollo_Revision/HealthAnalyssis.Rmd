@@ -1,0 +1,366 @@
+---
+title: "HealthWorkes"
+author: "Bonsoul"
+date: "2025-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,libraries}
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(summarytools)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+```
+
+```{r,data}
+df <- read_csv("D:/Downloads/Caregivers data.csv")
+
+data <- read_csv("D:/Downloads/Healthcareworkers_data.csv")
+
+
+```
+
+```{r,}
+colnames(data)
+```
+
+
+```{r,EDA}
+
+data <- data %>%
+  mutate(age_group = case_when(
+    `Age` %in% c(">45", "Above 45", "Above45") ~ "Above 45",
+    TRUE ~ as.character(`Age`)  # Keep other values unchanged
+  ))
+data1 <- data %>%
+  mutate(`Duration of practise` = str_extract(`Duration of practise`, "\\d{1,2}-\\d{1,2}|>\\d{1,2}")) %>%
+  mutate(`Duration of practise` = recode(`Duration of practise`,
+                                         "0-5" = "0–5",
+                                         "6-10" = "6–10",
+                                         "11-15" = "11–15",
+                                         "16-20" = "16–20",
+                                         ">20" = "Above 20")) %>%
+  mutate(`Duration of practise` = factor(`Duration of practise`,
+                                         levels = c("0–5", "6–10", "11–15", "16–20", "Above 20"),
+                                         ordered = TRUE))
+
+data1 <- data1 %>%
+  mutate(Age = str_replace_all(Age, regex("(?i)above\\s*45"), ">45"))
+```
+
+
+```{r}
+data1 %>%
+  count(`Duration of practise`, name = "Count") %>%
+  print()
+
+data1 %>%
+  count(`IMCI trained`, name = "Count") %>%
+  print()
+
+data1 %>%
+  count(`cadre of HCWs`, name = "Count") %>%
+  arrange(desc(Count)) %>%
+  print()
+
+data1 %>%
+  count(`Gender`, name = "Count") %>%
+  arrange(desc(Count)) %>%
+  print()
+
+data1 %>%
+  count(`Age`, name = "Count") %>%
+  arrange(desc(Count)) %>%
+  print()
+```
+
+```{r,visualization of data(Healthworkers)}
+ggplot(data1, aes(x = `Duration of practise`)) +
+  geom_bar(fill = "#2c7fb8") +
+  labs(title = "Distribution of Duration of Practise",
+       x = "Duration of Practise (Years)",
+       y = "Number of Healthcare Workers") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+data1 %>%
+  count(`IMCI trained`, name = "Count") %>%
+  ggplot(aes(x = `IMCI trained`, y = Count, fill = `IMCI trained`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "IMCI Training Status", x = "IMCI Trained", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+data1 %>%
+  count(`cadre of HCWs`, name = "Count") %>%
+  ggplot(aes(x = fct_reorder(`cadre of HCWs`, Count), y = Count, fill = `cadre of HCWs`)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Cadre of Health Care Workers", x = "Cadre", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+data1 %>%
+  count(Gender, name = "Count") %>%
+  ggplot(aes(x = Gender, y = Count, fill = Gender)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Gender Distribution", x = "Gender", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+data1 %>%
+  count(Age, name = "Count") %>%
+  ggplot(aes(x = fct_reorder(Age, Count), y = Count, fill = Age)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Age Distribution", x = "Age Group", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+```{r, caregivers dataset}
+df1 <- df %>%
+  mutate(
+    Date = as.Date(Date, format = "%m/%d/%Y"),        # Convert to Date
+    `Age in years` = as.factor(`Age in years`)        # Convert to Factor
+  )
+
+```
+
+```{r, data manipulation}
+df1 <- df1 %>% 
+  rename(
+    caregiver_age = `Age in years`,
+    gender = `Gender...28`,
+    relation = `Relationship to the child`
+  )
+
+```
+
+```{r}
+df1 %>%
+  count(caregiver_age, name = "Count") %>%
+  print()
+
+
+# 2. Gender
+df1 %>%
+  filter(gender %in% c("Female", "Male")) %>%
+  count(gender, name = "Count") %>%
+  print()
+
+# 3. Relationship to the child
+df1 %>%
+  count(relation, name = "Count") %>%
+  arrange(desc(Count)) %>%
+  print()
+
+# 5. Level of education
+df1 %>%
+  count(`Level of education`, name = "Count") %>%
+  print()
+
+# 6. Social Health Insurance (SHA)
+df1 %>%
+  count(`Do you have the Social Health Insurance(SHA)?`, name = "Count") %>%
+  print()
+
+# 7. Other health insurance
+df1 %>%
+  count(`Do you have any health insurance other than the SHA?`, name = "Count") %>%
+  print()
+
+# 8. Age of child (summary stats)
+df1 %>%
+  summarise(
+    Min = min(`Age of child (In months)`, na.rm = TRUE),
+    Q1 = quantile(`Age of child (In months)`, 0.25, na.rm = TRUE),
+    Median = median(`Age of child (In months)`, na.rm = TRUE),
+    Mean = mean(`Age of child (In months)`, na.rm = TRUE),
+    Q3 = quantile(`Age of child (In months)`, 0.75, na.rm = TRUE),
+    Max = max(`Age of child (In months)`, na.rm = TRUE),
+    SD = sd(`Age of child (In months)`, na.rm = TRUE)
+  ) %>%
+  print()
+
+# 9. Gender of child
+df1 %>%
+  count(`Gender of child`, name = "Count") %>%
+  print()
+
+```
+
+```{r,decriptive analysis}
+# 1. Age in years (categorical)
+df1 %>%
+  count(caregiver_age, name = "Count") %>%
+  ggplot(aes(x = caregiver_age, y = Count, fill = caregiver_age)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Distribution of Caregiver Age", x = "Age Group", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# 2. Gender
+df1 %>%
+  filter(gender %in% c("Female", "Male")) %>%
+  count(gender, name = "Count") %>%
+  ggplot(aes(x = gender, y = Count, fill = gender)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Gender of Caregivers", x = "Gender", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+# 3. Relationship to the child
+df1 %>%
+  count(relation, name = "Count") %>%
+  ggplot(aes(x = fct_reorder(relation, Count), y = Count, fill = relation)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Relationship to the Child", x = "Relation", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# 4. Occupation (top 10 for clarity)
+df1 %>%
+  count(`Level of education`, name = "Count") %>%
+  ggplot(aes(x = fct_reorder(`Level of education`, Count), y = Count, fill = `Level of education`)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Caregiver Level of Education", x = "Education Level", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# 5. Level of education
+df1 %>%
+  count(`Do you have the Social Health Insurance(SHA)?`, name = "Count") %>%
+  ggplot(aes(x = `Do you have the Social Health Insurance(SHA)?`, y = Count, fill = `Do you have the Social Health Insurance(SHA)?`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Ownership of SHA", x = "SHA Ownership", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+# 6. Social Health Insurance (SHA)
+df1 %>%
+  count(`Do you have any health insurance other than the SHA?`, name = "Count") %>%
+  ggplot(aes(x = `Do you have any health insurance other than the SHA?`, y = Count, fill = `Do you have any health insurance other than the SHA?`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Ownership of Other Health Insurance", x = "Other Insurance", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+# 7. Other Insurance
+# Histogram
+ggplot(df1, aes(x = `Age of child (In months)`)) +
+  geom_histogram(binwidth = 3, fill = "#41b6c4") +
+  labs(title = "Age Distribution of Children", x = "Age (months)", y = "Count") +
+  theme_minimal()
+
+# Boxplot
+ggplot(df1, aes(y = `Age of child (In months)`)) +
+  geom_boxplot(fill = "#2c7fb8") +
+  labs(title = "Boxplot of Child Age", y = "Age (months)") +
+  theme_minimal()
+
+
+# 8. Age of child (continuous)
+ggplot(df1, aes(x = `Age of child (In months)`)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "black") +
+  labs(title = "Child Age Distribution", x = "Age (months)", y = "Frequency") +
+  theme_minimal()
+
+# 9. Gender of child
+
+df1 %>%
+  count(`Gender of child`, name = "Count") %>%
+  ggplot(aes(x = `Gender of child`, y = Count, fill = `Gender of child`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Gender of Children", x = "Gender", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+```{r, health facility}
+# Assuming checklist items are binary (0 = not done, 1 = done)
+
+facility_checklist <- read_csv("D:/Downloads/Health facility Assessment Checklist (Responses).csv")
+facility_checklist$quality_score <- rowMeans(facility_checklist[ , sapply(facility_checklist, is.numeric)], na.rm = TRUE) * 100
+```
+
+
+```{r}
+# Select relevant assessment columns (trimmed for example)
+quality_vars_yes_no <- c(
+  "Tetracycline eye ointment",
+  "chlorhexidine",
+  "Benzyl penicillin",
+  "Gentamycin",
+  "Sterile water for injection",
+  "Recommended IV fluid for severe dehydration (Ringers lactate)",
+  "Did the supervisor observe case management of a sick child the last time he/she visited the facility?",
+  "16. Have you ever wanted to refer a very severely-ill child but been unable to do so"
+)
+
+# Convert Yes/No to 1/0 
+facility_quality <- facility_checklist %>%
+  mutate(across(all_of(quality_vars_yes_no), ~ ifelse(str_to_lower(trimws(.)) == "yes", 1, 0)))
+
+# Child health service days
+facility_quality$child_service_days <- case_when(
+  str_detect(str_to_lower(facility_quality$`How many days per week are child health services provided?`), "daily|7") ~ 7,
+  str_detect(facility_quality$`How many days per week are child health services provided?`, "5") ~ 5,
+  str_detect(facility_quality$`How many days per week are child health services provided?`, "6") ~ 6,
+  TRUE ~ NA_real_
+)
+
+# Vaccination service days
+facility_quality$vaccine_days <- case_when(
+  str_detect(str_to_lower(facility_quality$`How many days per week are vaccination services available?`), "daily|7") ~ 7,
+  str_detect(facility_quality$`How many days per week are vaccination services available?`, "5") ~ 5,
+  str_detect(facility_quality$`How many days per week are vaccination services available?`, "6") ~ 6,
+  TRUE ~ NA_real_
+)
+
+# Compute total score 
+facility_quality <- facility_quality %>%
+  rowwise() %>%
+  mutate(
+    total_score = sum(c_across(all_of(quality_vars_yes_no)), na.rm = TRUE) +
+                  sum(child_service_days, vaccine_days, na.rm = TRUE),
+    max_score = length(quality_vars_yes_no) + 14,  
+    quality_percent = (total_score / max_score) * 100
+  ) %>%
+  ungroup()
+
+# Show quality score per facility
+facility_scores <- facility_quality %>%
+  select(`Facility Name`, total_score, quality_percent)
+
+print(facility_scores)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
