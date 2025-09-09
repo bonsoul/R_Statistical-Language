@@ -1,0 +1,542 @@
+---
+title: "Livestock"
+author: "Bonsoul"
+date: "2025-09-08"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(pacman)
+```
+
+
+```{r}
+pacman::p_load(ggplot2, data.table, stringr, knitr, tidyr, dplyr, ggplot2, scales, sf, rgeoboundaries)
+```
+
+```{r}
+data <- read.csv("~/R Studio/R_Statistical-Language/Livestock statistics 2023.csv")
+```
+
+```{r}
+head(data)
+```
+
+
+```{r}
+colnames(data)
+```
+
+
+```{r}
+data %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "Column", values_to = "Null_Count") %>%
+  mutate(Null_Percent = round((Null_Count / nrow(data)) * 100, 2)) %>%
+  kable()
+
+
+```
+
+
+```{r}
+data <- data %>%
+  mutate(across(-County, ~as.numeric(gsub(",", "", .))))
+
+
+```
+
+
+```{r}
+data <- data[, !(names(data) %in% c("X", "X.1", "X.2","X.3","X.4"))]
+
+```
+
+
+```{r}
+kenyan_total1 <- data %>%
+  summarise(across(-County, ~sum(., na.rm = TRUE)))
+
+
+print(kenyan_total1)
+```
+
+
+```{r}
+kenya_totals_long <- kenyan_total1 %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "Total")
+```
+
+```{r}
+ggplot(kenya_totals_long, aes(x = reorder(Variable, Total), y = Total)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+  theme_minimal() +
+  labs(title = "Total Livestock Counts in Kenya",
+       x = "Livestock Type", y = "Total")
+```
+
+
+```{r}
+# Add category mapping
+kenya_totals_long1 <- kenya_totals_long %>%
+  mutate(Category = case_when(
+    Variable %in% c("Cattle_Dairy", "Cattle_Beef", "Wool_sheep", "Hair_Sheep") ~ "Cattle & Sheep",
+    Variable %in% c("Goats_Dairy", "Goats_Meat", "Pigs") ~ "Goats & Pigs",
+    Variable %in% c("Broilers", "Layers", "Indigenous.Chicken", "Improved.Indegenious.Chicken",
+                    "Turkeys", "Ducks", "Geese", "Guinea.Fowl", "Quails", "Ostrich") ~ "Poultry",
+    Variable %in% c("Rabbits", "Pigeons", "Doves") ~ "Small Animals",
+    Variable %in% c("Donkeys", "Camels", "Horses", "Crocodile") ~ "Large Animals",
+    Variable %in% c("Hives_Log", "Hives_Ktbh", "Hives_Lang", "Hives_Box", "Cab.Hive") ~ "Beekeeping",
+    TRUE ~ "Other"
+  ))
+```
+
+```{r}
+ggplot(kenya_totals_long1 %>% group_by(Category) %>% summarise(Total = sum(Total)),
+       aes(x = reorder(Category, Total), y = Total)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Kenya Livestock Totals by Category",
+       x = "Category", y = "Total")
+
+```
+
+```{r}
+ggplot(kenya_totals_long1 %>% group_by(Category) %>% summarise(Total = sum(Total)),
+       aes(x = reorder(Category, Total), y = Total)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  scale_y_continuous(labels = comma) +
+  theme_minimal() +
+  labs(title = "Kenya Livestock Totals by Category",
+       x = "Category", y = "Total")
+
+```
+
+```{r}
+for(cat in unique(kenya_totals_long1$Category)) {
+  p <- kenya_totals_long1 %>%
+    filter(Category == cat) %>%
+    ggplot(aes(x = reorder(Variable, Total), y = Total, fill = Variable)) +
+    geom_col(show.legend = FALSE) +
+    coord_flip() +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    scale_fill_brewer(palette = "Set3") +
+    theme_minimal(base_size = 13) +
+    theme(
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(face = "bold", size = 15, hjust = 0.5),
+      panel.grid.major.y = element_blank()
+    ) +
+    labs(title = paste("Kenya Livestock Totals -", cat),
+         x = "Livestock Type", y = "Total (K/M units)")
+  print(p)
+}
+```
+
+
+```{r}
+county_totals <- data %>%
+  rowwise() %>%
+  mutate(Total = sum(c_across(-County), na.rm = TRUE)) %>%
+  ungroup() %>%
+  arrange(desc(Total)) %>%
+  slice_head(n = 10)
+```
+
+
+```{r}
+View(county_totals)
+```
+
+
+```{r}
+ggplot(county_totals, aes(x = reorder(County, Total), y = Total)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = label_number(scale_cut = cut_short_scale())(Total)),
+            hjust = -0.1, size = 3.5) +
+  coord_flip() +
+  scale_y_continuous(labels = label_number(scale_cut = cut_short_scale()),
+                     expand = expansion(mult = c(0, 0.1))) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Top 10 Counties by Total Livestock",
+       x = "County", y = "Total (K/M units)")
+```
+
+```{r}
+# Assuming your dataset is called df_top10
+df_top10_long <- county_totals %>%
+  select(-Total) %>%  # drop overall total for now
+  pivot_longer(-County, names_to = "Variable", values_to = "Value")
+```
+
+
+
+
+
+```{r}
+kenya_counties <- "D:\\Documents\\R Studio\\R_Statistical-Language\\shapefiles"
+
+
+my_shapefile <- st_read(kenya_counties)
+```
+
+```{r}
+water_bodies <- "D:\\Documents\\R Studio\\R_Statistical-Language\\KEN_Lakes"
+
+
+water_file <- st_read(water_bodies)
+```
+
+
+```{r}
+colnames(water_file)
+```
+
+
+```{r}
+# Replace 'NAME' with the actual column that has lake names
+selected_lakes <- water_file[water_file$NAME %in% c("Turkana", "Victoria"), ]
+
+```
+
+
+```{r}
+ggplot() +
+  geom_sf(data = my_shapefile, fill = "lightyellow", color = "black") +
+  geom_sf(data = selected_lakes, fill = "lightblue", color = "blue") +
+  theme_minimal() +
+  labs(title = "Kenya Counties with Lake Turkana and Lake Victoria")
+```
+
+
+
+```{r}
+colnames(my_shapefile)
+
+```
+
+```{r}
+unique(data$County)
+```
+
+
+```{r}
+# Print all county names
+unique(my_shapefile$Name)
+
+```
+
+
+```{r}
+my_shapefile <- my_shapefile %>%
+  rename(County = Name)
+```
+
+```{r}
+colnames(kenya_livestock)
+```
+
+
+
+```{r}
+
+# Join on county name column
+kenya_livestock <- my_shapefile %>%
+  left_join(data, by = c("County" = "County"))
+
+```
+
+
+```{r}
+ggplot() +
+  geom_sf(data = kenya_livestock, aes(fill = Cattle_Beef), color = "black") +
+  geom_sf(data = selected_lakes, fill = "lightblue", color = "blue") +
+  scale_fill_viridis_c(option = "plasma", name = "Cattle") +
+  theme_minimal() +
+  labs(title = "Distribution of Cattle Across Kenya Counties")
+
+```
+
+
+```{r}
+library(leaflet)
+library(sf)
+
+# Assume kenya_livestock already contains your counties + Cattle_Beef column
+# and selected_lakes contains your lakes
+
+# 1. Create a color palette function
+pal_fun <- colorNumeric(
+  palette = "YlOrRd",    # Yellow → Orange → Red (good for intensity)
+  domain = kenya_livestock$Cattle_Beef
+)
+
+# 2. Create popups (optional: county name + cattle count)
+p_popup <- paste0(
+  "<b>County:</b> ", kenya_livestock$county, "<br/>",
+  "<b>Cattle:</b> ", formatC(kenya_livestock$Cattle_Beef, big.mark = ",")
+)
+
+# 3. Build leaflet map
+leaflet(kenya_livestock) %>%
+  addPolygons(
+    stroke = TRUE,
+    color = "black", weight = 1,
+    fillColor = ~pal_fun(Cattle_Beef),
+    fillOpacity = 0.8,
+    smoothFactor = 0.5,
+    popup = p_popup
+  ) %>%
+  addPolygons(
+    data = selected_lakes,
+    fillColor = "lightblue",
+    color = "blue",
+    weight = 1,
+    fillOpacity = 0.7,
+    popup = ~paste("Lake")
+  ) %>%
+  addTiles() %>%
+  addLegend(
+    pal = pal_fun,
+    values = kenya_livestock$Cattle_Beef,
+    position = "bottomright",
+    title = "Cattle"
+  )
+
+```
+
+```{r}
+library(leaflet)
+library(sf)
+
+# Assume kenya_livestock has county polygons + Cattle_Beef column
+# and selected_lakes contains your lakes
+
+# 1. Define color palette
+pal_fun <- colorNumeric(
+  palette = "YlGnBu",   # Blue-Green scale (livestock intensity)
+  domain = kenya_livestock$Cattle_Beef
+)
+
+# 2. Define popup info (when you click)
+county_popup <- paste0(
+  "<b>County:</b> ", kenya_livestock$county, "<br/>",
+  "<b>Cattle:</b> ", formatC(kenya_livestock$Cattle_Beef, big.mark = ",")
+)
+
+# 3. Define hover labels (when you point at a county)
+county_label <- paste0(
+  kenya_livestock$county, ": ",
+  formatC(kenya_livestock$Cattle_Beef, big.mark = ","),
+  " cattle"
+)
+
+# 4. Build interactive map
+leaflet(kenya_livestock) %>%
+  addTiles() %>%
+  addPolygons(
+    stroke = TRUE, color = "black", weight = 1,
+    fillColor = ~pal_fun(Cattle_Beef),
+    fillOpacity = 0.8, smoothFactor = 0.5,
+    popup = county_popup,   # Click → popup
+    label = county_label,   # Hover → label
+    highlightOptions = highlightOptions(
+      weight = 3, color = "red", bringToFront = TRUE
+    )
+  ) %>%
+  addPolygons(
+    data = selected_lakes,
+    fillColor = "lightblue", color = "blue",
+    weight = 1, fillOpacity = 0.7,
+    label = ~paste("Lake:", LAKE)   # ✅ use LAKE column
+  ) %>%
+  addLegend(
+    pal = pal_fun, values = kenya_livestock$Cattle_Beef,
+    position = "bottomright",
+    title = "Cattle"
+  )
+
+
+```
+
+
+```{r}
+colnames(data)
+```
+
+```{r}
+library(leaflet)
+library(dplyr)
+
+# Pick the livestock columns (excluding geometry)
+livestock_vars <- c(
+  "Cattle_Beef", "Cattle_Dairy", "Camels",
+  "Goats_Meat", "Goats_Dairy", "Sheep",
+  "Pigs", "Donkeys", "Poultry"   # you can extend this
+)
+
+# Function to plot one variable
+plot_livestock <- function(varname) {
+  pal_fun <- colorNumeric(
+    palette = "YlOrRd",
+    domain = kenya_livestock[[varname]]
+  )
+  
+  popup <- paste0(
+    "<b>County:</b> ", kenya_livestock$County, "<br/>",
+    "<b>", varname, ":</b> ", formatC(kenya_livestock[[varname]], big.mark = ",")
+  )
+  
+  leaflet(kenya_livestock) %>%
+    addPolygons(
+      stroke = TRUE, color = "black", weight = 1,
+      fillColor = ~pal_fun(.data[[varname]]),
+      fillOpacity = 0.8, smoothFactor = 0.5,
+      popup = popup
+    ) %>%
+    addPolygons(
+      data = selected_lakes,
+      fillColor = "lightblue", color = "blue",
+      weight = 1, fillOpacity = 0.7,
+      popup = ~paste("Lake:", LAKE)
+    ) %>%
+    addTiles() %>%
+    addLegend(
+      pal = pal_fun, values = kenya_livestock[[varname]],
+      position = "bottomright",
+      title = varname
+    )
+}
+
+# Example: plot cattle beef
+plot_livestock("Cattle_Beef")
+
+# Example: plot camels
+plot_livestock("Camels")
+
+```
+
+
+```{r}
+# Keep only Kenya counties
+kenya_only <- kenya_livestock   # already Kenya-specific in your case
+
+# Build leaflet map again
+leaflet(kenya_only) %>%
+  addPolygons(
+    stroke = TRUE,
+    color = "black", weight = 1,
+    fillColor = ~pal_fun(Cattle_Beef),
+    fillOpacity = 0.8,
+    smoothFactor = 0.5,
+    popup = p_popup
+  ) %>%
+  addPolygons(
+    data = selected_lakes,
+    fillColor = "lightblue",
+    color = "blue",
+    weight = 1,
+    fillOpacity = 0.7,
+    popup = ~paste("Lake:", LAKE)   # show lake name
+  ) %>%
+  addTiles() %>%
+  addLegend(
+    pal = pal_fun,
+    values = kenya_only$Cattle_Beef,
+    position = "bottomright",
+    title = "Cattle"
+  )
+
+```
+
+
+
+```{r}
+library(tmap)
+
+# 1. Build the tmap object
+livestock_map <- tm_shape(kenya_livestock) +
+  tm_polygons("Cattle_Beef", palette = "YlGnBu", style = "cont",
+              title = "Cattle") +
+  tm_shape(selected_lakes) +
+  tm_polygons(col = "lightblue", border.col = "blue") +
+  tm_layout(main.title = "Cattle Distribution Across Kenya Counties")
+
+# 2. Show the map
+tmap_mode("plot")   # static plotting mode
+livestock_map
+
+```
+
+```{r}
+colnames(kenya_livestock)
+```
+
+
+```{r}
+library(tmap)
+
+livestock_map <- 
+  tm_shape(kenya_livestock) +
+  tm_polygons(fill = "Cattle_Beef") +
+  tm_scale_continuous(values = "YlGnBu") +
+  tm_legend(title = "Beef Cattle") +
+  tm_shape(selected_lakes) +
+  tm_polygons(fill = "lightblue", col = "blue") +
+  tm_title("Distribution of Beef Cattle Across Kenya Counties")
+
+tmap_mode("plot")   # static map mode
+livestock_map
+
+
+```
+
+
+```{r}
+class(kenya_livestock)
+st_geometry_type(kenya_livestock)
+any(is.na(st_geometry(kenya_livestock)))
+
+```
+
+
+```{r}
+library(tmap)
+
+livestock_map <- 
+  tm_shape(kenya_livestock) +
+  tm_polygons(
+    fill = "Cattle_Beef",
+    fill.scale = tm_scale_continuous(values = "YlGnBu"),
+    fill.legend = tm_legend(title = "Beef Cattle")
+  ) +
+  tm_shape(selected_lakes) +
+  tm_polygons(fill = "lightblue", col = "blue") +
+  tm_title("Distribution of Beef Cattle Across Kenya Counties")
+
+tmap_mode("plot")
+livestock_map
+
+```
+
+
+
+```{r}
+class(kenya_livestock)
+```
+
+
+```{r}
+st_geometry(kenya_livestock)
+```
+
