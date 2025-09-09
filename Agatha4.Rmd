@@ -1,0 +1,125 @@
+---
+title: "Dr.Agatha"
+author: "Bonsoul"
+date: "2025-05-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,libraries}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(janitor)
+library(knitr)
+library(dplyr)
+options(tibble.print_max = Inf, width = 1000) 
+
+```
+
+```{r,read the data}
+data <- read_csv("D:/Downloads/Health facility Assessment Checklist (Responses).csv")
+```
+
+```{r,clean column names}
+colnames(data)
+
+```
+
+```{r,data cleaning}
+data_clean <- data %>%
+  clean_names
+
+names(data_clean)
+```
+
+
+```{r,Convert relevant columns to correct data types}
+yes_no_cols <- c(
+  "ors",
+  "recommended_antibiotic_for_pneumonia_amoxicillin",
+  "recommended_antibiotic_for_dysentery_ciprofloxacin",
+  "vitamin_a",
+  "iron",
+  "paracetamol",
+  "mebendazole",
+  "tetracycline_eye_ointment",
+  "chlorhexidine",
+  "benzyl_penicillin",
+  "gentamycin",
+  "sterile_water_for_injection",
+  "recommended_iv_fluid_for_severe_dehydration_ringers_lactate"
+)
+
+data_clean <- data_clean %>%
+  mutate(across(all_of(yes_no_cols), ~ ifelse(str_to_lower(.) == "yes", 1, 0)))
+
+```
+
+```{r, calculate availability (Yes = 1, No = 0)}
+data_clean1 <- data_clean %>%
+  mutate(
+    how_many_of_these_visits_were_made_by_children_between_the_ages_0_2_months = as.numeric(how_many_of_these_visits_were_made_by_children_between_the_ages_0_2_months)
+  )
+
+```
+
+```{r, check the data}
+glimpse(data_clean1)
+
+```
+
+
+```{r,}
+essential_items <- c(
+  "ors", 
+  "recommended_antibiotic_for_pneumonia_amoxicillin", 
+  "recommended_antibiotic_for_dysentery_ciprofloxacin", 
+  "vitamin_a", 
+  "iron", 
+  "paracetamol", 
+  "mebendazole", 
+  "tetracycline_eye_ointment", 
+  "chlorhexidine", 
+  "benzyl_penicillin", 
+  "gentamycin", 
+  "sterile_water_for_injection", 
+  "recommended_iv_fluid_for_severe_dehydration_ringers_lactate"
+)
+
+# Calculate availability (Yes = 1, No = 0)
+availability <- data_clean1 %>%
+  select(facility_name, all_of(essential_items)) %>%
+  rowwise() %>%
+  mutate(total_available = sum(c_across(all_of(essential_items)) == 1)) %>%
+  ungroup()
+
+
+print(availability)
+
+
+```
+
+```{r,plot}
+ggplot(availability, aes(x = reorder(facility_name, -total_available), y = total_available)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Total Essential Items Available per Facility",
+       x = "Facility",
+       y = "Number of Available Essential Items") +
+  theme_minimal()
+
+```
+
+
+```{r}
+referral_issues <- data_clean1 %>%
+  select(facility_name, x16_have_you_ever_wanted_to_refer_a_very_severely_ill_child_but_been_unable_to_do_so) %>%
+  filter(x16_have_you_ever_wanted_to_refer_a_very_severely_ill_child_but_been_unable_to_do_so == 1)
+
+print(referral_issues)
+
+```
