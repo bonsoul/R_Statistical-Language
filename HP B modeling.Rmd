@@ -1,0 +1,241 @@
+---
+title: "Marakwet"
+author: "Bonsoul"
+date: "2025-10-01"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(pacman)
+```
+
+```{r}
+pacman::p_load(dplyr, readr, tidyr, ggplot2, janitor,knitr)
+```
+
+
+```{r}
+data1 <- read_csv("D:/Downloads/Final Household data Edit.csv")
+```
+
+
+```{r}
+dim(data1)
+colnames(data1)
+str(data1)
+summary(data1)
+```
+
+
+```{r}
+data2 <- data1 %>%
+  mutate(across(where(is.character), ~as.factor(.)))
+
+```
+
+
+```{r}
+data2$Dateofinterview <- as.Date(data2$Dateofinterview, formats="%d/%m/%Y")
+```
+
+
+```{r}
+str(data2)
+```
+
+```{r}
+# Quick check
+summary(select(data1, Latitude, Longitude))
+
+```
+
+```{r, mutate the longtides}
+data2 <- data2 %>%
+  mutate(Longitude = ifelse(Longitude > 100 | Longitude < 20, NA, Longitude))
+```
+
+
+```{r, calculating the % of null}
+colSums(is.na(data2)) / nrow(data2) * 100
+```
+
+```{r}
+data2 <- data2 %>% drop_na()
+```
+
+
+```{r}
+colnames(data2)
+```
+
+```{r}
+unique(data1$N6SubCounty)
+```
+
+
+```{r}
+ggplot(data1, aes(x = N6SubCounty)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Number of Respondents per County", x = "County", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+```{r}
+
+data1 <- data1 %>%
+  filter(!is.na(N1Ageinyears1)) %>%   # remove rows with NA in age
+  mutate(AgeGroup = cut(N1Ageinyears1,
+                        breaks = c(0, 17, 29, 39, 49, 59, Inf),
+                        labels = c("0-17", "18-29", "30-39", "40-49", "50-59", "60+"),
+                        right = TRUE))
+
+```
+
+
+```{r}
+table(data1$AgeGroup)
+
+```
+
+```{r}
+ggplot(data1, aes(x = AgeGroup)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Respondents by Age Group",
+       x = "Age Group", y = "Count")
+
+```
+
+
+
+```{r}
+ggplot(data1, aes(x = N1Ageinyears1)) +
+  geom_histogram(binwidth = 5, fill = "darkgreen", color = "white") +
+  labs(title = "Age Distribution", x = "Age (Years)", y = "Count")
+
+```
+
+```{r}
+ggplot(data1, aes(x = `Screening (DiaSpot HBsAg RDT)`)) +
+  geom_bar(fill = "purple") +
+  labs(title = "HBsAg Screening Results", x = "Result", y = "Count")
+
+```
+
+
+```{r}
+ggplot(data1, aes(x= N2Sex1)) + 
+  geom_bar(fill = "tomato")  +
+  labs(title = "Sex Distribution", x = "Sex", y = "Count")
+  
+```
+
+```{r}
+ggplot(data1, aes(x = N9Whatisyourreligion)) +
+  geom_bar(fill = "orange") +
+  labs(title = "Religion of Respondents", x = "Religion", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+
+# 1. Age groups
+data1 <- data1 %>%
+  mutate(AgeGroup = cut(N1Ageinyears1,
+                        breaks = c(-Inf, 24, 34, 44, 54, Inf),
+                        labels = c("<25", "25-34", "35-44", "45-54", "≥55")))
+
+# 2. Summarize a helper function
+summarize_var <- function(df, var) {
+  df %>%
+    tabyl({{ var }}) %>%
+    mutate(percent = round(100 * percent, 1),
+           result = paste0(n, " (", percent, ")")) %>%
+    select(levels = 1, result)
+}
+
+# 3. Apply to each characteristic
+age_tab   <- summarize_var(data1, AgeGroup)
+sex_tab   <- summarize_var(data1, N2Sex1)
+cadre_tab <- summarize_var(data1, N5Whatisyouroccupation1)
+edu_tab   <- summarize_var(data1, N7Haveyouhadformaleducation1)
+exp_tab   <- summarize_var(data1, N5years1)
+hosp_tab  <- summarize_var(data1, N6Areyouemployedinhospital1)
+empl_tab  <- summarize_var(data1, EmployedintheHealthSector)
+
+# 4. Print tables
+list(
+  Age = age_tab,
+  Sex = sex_tab,
+  Cadre = cadre_tab,
+  Education = edu_tab,
+  Experience = exp_tab,
+  HealthFacility = hosp_tab,
+  Employer = empl_tab
+)
+
+```
+
+
+
+```{r}
+# Force levels to character inside the helper function
+summarize_var <- function(data1, var) {
+  df %>%
+    janitor::tabyl({{ var }}) %>%
+    mutate(percent = round(100 * percent, 1),
+           result = paste0(n, " (", percent, ")"),
+           levels = as.character(!!sym(names(.)[1]))) %>%   # <-- force to character
+    select(levels, result)
+}
+
+```
+
+
+```{r}
+# --- Helper function ---
+summarize_var <- function(df, var, label) {
+  df %>%
+    janitor::tabyl({{ var }}) %>%
+    mutate(
+      percent = round(100 * percent, 1),
+      result = paste0(n, " (", percent, "%)"),
+      levels = as.character(!!sym(names(.)[1])),   # force to character
+      Characteristic = label
+    ) %>%
+    select(Characteristic, levels, result)
+}
+
+# --- Apply to your variables ---
+age_tab   <- summarize_var(data1, AgeGroup, "Age group")
+sex_tab   <- summarize_var(data1, N2Sex1, "Sex")
+cadre_tab <- summarize_var(data1, N5Whatisyouroccupation1, "Staff cadre")
+edu_tab   <- summarize_var(data1, N7Haveyouhadformaleducation1, "Education level")
+exp_tab   <- summarize_var(data1, N5years1, "Years in practice")
+hosp_tab  <- summarize_var(data1, N6Areyouemployedinhospital1, "Health facility")
+empl_tab  <- summarize_var(data1, EmployedintheHealthSector, "Employer")
+
+# --- Combine safely ---
+final_tab <- bind_rows(age_tab, sex_tab, cadre_tab, edu_tab, exp_tab, hosp_tab, empl_tab)
+
+# --- Print in kable ---
+knitr::kable(
+  final_tab,
+  caption = "Characteristics of Study Participants",
+  col.names = c("Characteristic", "Category", "Frequency (%)"),
+  align = "lcc"
+)
+
+```
+
+
+
+
