@@ -11,231 +11,768 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, include=FALSE}
 library(pacman)
 ```
 
-```{r}
-pacman::p_load(dplyr, readr, tidyr, ggplot2, janitor,knitr)
+```{r, libraries, include=FALSE}
+pacman::p_load(dplyr, readr, tidyr, ggplot2, stringr, janitor,knitr,logistf, kableExtra)
 ```
 
 
-```{r}
-data1 <- read_csv("D:/Downloads/Final Household data Edit.csv")
-```
-
-
-```{r}
-dim(data1)
-colnames(data1)
-str(data1)
-summary(data1)
-```
-
-
-```{r}
-data2 <- data1 %>%
-  mutate(across(where(is.character), ~as.factor(.)))
+```{r,dataset, include=FALSE}
+df1 <- read_csv("D:/Downloads/Final Household data Edit.csv")
+df2 <- read_csv("D:/Downloads/HCW Excel Final Edit.csv")
+df3 <- read_csv("D:/Downloads/Prison Excel Final Edit.csv")
 
 ```
 
 
-```{r}
-data2$Dateofinterview <- as.Date(data2$Dateofinterview, formats="%d/%m/%Y")
-```
 
 
-```{r}
-str(data2)
-```
+```{r, include=FALSE}
+library(dplyr)
 
-```{r}
-# Quick check
-summary(select(data1, Latitude, Longitude))
-
-```
-
-```{r, mutate the longtides}
-data2 <- data2 %>%
-  mutate(Longitude = ifelse(Longitude > 100 | Longitude < 20, NA, Longitude))
-```
-
-
-```{r, calculating the % of null}
-colSums(is.na(data2)) / nrow(data2) * 100
-```
-
-```{r}
-data2 <- data2 %>% drop_na()
-```
-
-
-```{r}
-colnames(data2)
-```
-
-```{r}
-unique(data1$N6SubCounty)
-```
-
-
-```{r}
-ggplot(data1, aes(x = N6SubCounty)) +
-  geom_bar(fill = "steelblue") +
-  labs(title = "Number of Respondents per County", x = "County", y = "Count") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+summary_table <- df1 %>%
+  group_by(N6SubCounty) %>%
+  summarise(
+    No_tested = n(),
+    No_positive = sum(PositiveforHepatitisB == 1, na.rm = TRUE),
+    No_negative = sum(NegativeforHepatitisB == 1, na.rm = TRUE),
+    Positivity_rate = round(100 * No_positive / No_tested, 1),
+    HCW_Vaccinated = sum(Vaccination == 1 & EmployedintheHealthSector == 1, na.rm = TRUE),
+    Total_vaccinated = sum(Vaccination == 1, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  bind_rows(
+    summarise(., across(where(is.numeric), \(x) sum(x, na.rm = TRUE)),
+              N6SubCounty = "Total")
+  )
 
 ```
 
 
-```{r}
 
-data1 <- data1 %>%
-  filter(!is.na(N1Ageinyears1)) %>%   # remove rows with NA in age
+```{r, include=TRUE}
+
+# Print summary table in kable
+kable(summary_table,
+      caption = "Hepatitis B Screening and Vaccination Summary by Sub-County",
+      align = "c",
+      col.names = c("Sub-County", "No. Tested", "No. Positive", 
+                    "No. Negative", "Positivity Rate (%)", 
+                    "HCW Vaccinated", "Total Vaccinated"))
+
+```
+
+
+
+
+
+```{r, include=FALSE}
+df10 <- df10 %>%
+  mutate(N7Ward_clean = case_when(
+    str_detect(N7Ward, regex("kabartonjo|kabaritonjo|karbatonjo", ignore_case = TRUE)) ~ "Kabartonjo",
+    str_detect(N7Ward, regex("saimo\\s*kipsaraman", ignore_case = TRUE)) ~ "Saimo Kipsaraman",
+    str_detect(N7Ward, regex("saimosoi", ignore_case = TRUE)) ~ "Saimosoi",
+    str_detect(N7Ward, regex("barwesa|barwessa|barwessaa", ignore_case = TRUE)) ~ "Barwessa",
+    str_detect(N7Ward, regex("bartabwa", ignore_case = TRUE)) ~ "Bartabwa",
+    str_detect(N7Ward, regex("mukutani|mukutan[iy]|makutanii|Mukatanii", ignore_case = TRUE)) ~ "Mukutani",
+    str_detect(N7Ward, regex("ilichamus|ilchamus", ignore_case = TRUE)) ~ "Ilchamus",
+    str_detect(N7Ward, regex("muchongoi|mochongoi|mchongoi", ignore_case = TRUE)) ~ "Muchongoi",
+    str_detect(N7Ward, regex("kisanana", ignore_case = TRUE)) ~ "Kisanana",
+    str_detect(N7Ward, regex("mogotio|mogoti", ignore_case = TRUE)) ~ "Mogotio",
+    str_detect(N7Ward, regex("emining", ignore_case = TRUE)) ~ "Emining",
+    str_detect(N7Ward, regex("marigat|margat", ignore_case = TRUE)) ~ "Marigat",
+    TRUE ~ N7Ward
+  ))
+
+
+```
+
+
+
+
+```{r,Age and Sex, include=TRUE}
+
+df10 %>%
+  # remove missing/nulls in Age and Sex
+  filter(!is.na(N1Ageinyears1), !is.na(N2Sex1), N2Sex1 != "") %>%
+  
+  # create age groups
   mutate(AgeGroup = cut(N1Ageinyears1,
-                        breaks = c(0, 17, 29, 39, 49, 59, Inf),
-                        labels = c("0-17", "18-29", "30-39", "40-49", "50-59", "60+"),
+                        breaks = c(0, 14, 24, 34, 44, 100),
+                        labels = c("0-14", "15-24", "25-34", "35-44", "45+"),
+                        right = TRUE)) %>%
+  
+  # group and summarise
+  group_by(AgeGroup, N2Sex1) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  
+  # add percentage
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  
+  # pretty table
+  kable(caption = "Table 1: Age and Sex Distribution") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+```
+
+
+```{r, Education Status, include=TRUE}
+
+# 2a. Education Status
+df1 %>%
+  filter(!is.na(N7Haveyouhadformaleducation1), N7Haveyouhadformaleducation1 != "") %>% 
+  group_by(N7Haveyouhadformaleducation1) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 2: Education Status of Respondents") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+
+```
+
+
+
+```{r, status, include=TRUE}
+
+
+df10 %>%
+  filter(!is.na(N10Whatisyourmaritalstatus), N10Whatisyourmaritalstatus != "") %>%
+  group_by(N10Whatisyourmaritalstatus) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 4: Marital Status of Respondents") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+```
+
+```{r,Religion, include=TRUE}
+df10 %>%
+  filter(!is.na(N9Whatisyourreligion)) %>%   # <- added %>%
+  group_by(N9Whatisyourreligion) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 5: Religion of Respondents") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+```
+
+```{r, Reproductive Health, include=TRUE}
+df10 %>%
+  filter(N2Sex1 == "Female" & !is.na(N3Areyoucurrentlypregnant1)) %>%
+  group_by(N3Areyoucurrentlypregnant1) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 6: Pregnancy Status (Females only)") %>%
+  kable_styling(full_width = FALSE, position = "center")
+```
+
+
+
+```{r, Alcohol Consumption, include=TRUE}
+
+df10 %>%
+  filter(!is.na(N15Doyouconsumealcohol)) %>%
+  group_by(N15Doyouconsumealcohol) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 7: Alcohol Consumption among Respondents") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+```
+
+```{r, include=TRUE}
+df10 %>%
+  filter(!is.na(N20Howmanysexualpartnershaveyouhadinthelast12months)) %>%
+  group_by(N20Howmanysexualpartnershaveyouhadinthelast12months) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 8: Number of Sexual Partners in Last 12 Months") %>%
+  kable_styling(full_width = FALSE, position = "center")
+```
+
+
+```{r,Cultural / Risk Practices, include=TRUE}
+df10 %>%
+  filter(!is.na(N49Haveyoubeencircumcised)) %>%
+  group_by(N49Haveyoubeencircumcised) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 9: Circumcision Status") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+df10 %>%
+  filter(!is.na(N54Haveyouhadanytraditionalmarkstattoosbodyincisionsorpiercingsd)) %>%
+  group_by(N54Haveyouhadanytraditionalmarkstattoosbodyincisionsorpiercingsd) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(percent = round(100 * n / sum(n), 1)) %>%
+  kable(caption = "Table 10: Traditional Marks / Tattoos / Piercings") %>%
+  kable_styling(full_width = FALSE, position = "center")
+```
+
+
+
+```{r, include=FALSE}
+df10 <- df10 %>%
+  mutate(AgeGroup = cut(N1Ageinyears1,
+                        breaks = c(0, 24, 34, 44, 54, Inf),
+                        labels = c("<25", "25-34", "35-44", "45-54", "≥55"),
                         right = TRUE))
 
 ```
 
 
-```{r}
-table(data1$AgeGroup)
+
+
+```{r, include=FALSE}
+df10 <- df10 %>%
+  mutate(
+    HBV_Status = case_when(
+      PositiveforHepatitisB == "Yes" ~ "Positive",
+      NegativeforHepatitisB == "Yes" ~ "Negative",
+      Dontknow == "Yes" ~ "Dontknow",
+      TRUE ~ NA_character_
+    )
+  )
 
 ```
 
-```{r}
-ggplot(data1, aes(x = AgeGroup)) +
-  geom_bar(fill = "steelblue") +
-  labs(title = "Distribution of Respondents by Age Group",
-       x = "Age Group", y = "Count")
-
-```
-
-
-
-```{r}
-ggplot(data1, aes(x = N1Ageinyears1)) +
-  geom_histogram(binwidth = 5, fill = "darkgreen", color = "white") +
-  labs(title = "Age Distribution", x = "Age (Years)", y = "Count")
-
-```
-
-```{r}
-ggplot(data1, aes(x = `Screening (DiaSpot HBsAg RDT)`)) +
-  geom_bar(fill = "purple") +
-  labs(title = "HBsAg Screening Results", x = "Result", y = "Count")
+```{r, include=FALSE}
+df10_clean <- df10 %>%
+  filter(!is.na(HBV_Status))
 
 ```
 
 
+```{r, include=FALSE}
+
+sex_tab <- df10_clean %>%
+  filter(!is.na(HBV_Status), !is.na(N2Sex1)) %>%   # filter nulls in both variables
+  group_by(N2Sex1, HBV_Status) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(
+    id_cols = N2Sex1,
+    names_from = HBV_Status,
+    values_from = n,
+    values_fill = list(n = 0)
+  ) %>%
+  mutate(
+    Pos_pct = round(100 * Positive / sum(Positive), 1),
+    Neg_pct = round(100 * Negative / sum(Negative), 1),
+    Positive = paste0(Positive, " (", Pos_pct, "%)"),
+    Negative = paste0(Negative, " (", Neg_pct, "%)")
+  ) %>%
+  select(Sex = N2Sex1, Positive, Negative)
+
+```
+
+```{r, include=TRUE}
+# Print in kable format
+sex_tab %>%
+  kable(caption = "Table: HBV Status by Sex") %>%
+  kable_styling(full_width = FALSE, position = "center")
+```
+
+
+```{r, include=FALSE}
+# Keep only Positive and Negative, drop Dontknow & NAs
+df10_clean <- df10_clean %>%
+  filter(HBV_Status %in% c("Positive", "Negative")) %>%
+  mutate(HBV_binary = ifelse(HBV_Status == "Positive", 1, 0))
+
+# Double check
+table(df10_clean$HBV_binary, df10_clean$HBV_Status)
+
+
+
+```
+
+
+```{r, include=FALSE}
+# Unadjusted
+model_sex <- glm(HBV_binary ~ N2Sex1, data = df10_clean, family = binomial)
+summary(model_sex)
+
+
+# Extract OR + CI
+library(broom)
+or_sex <- tidy(model_sex, exponentiate = TRUE, conf.int = TRUE)
+```
+
+```{r, include=FALSE}
+library(dplyr)
+library(broom)
+library(knitr)
+library(kableExtra)
+
+# Recode outcome
+df10_clean <- df10_clean %>%
+  mutate(HBV_binary = ifelse(HBV_Status == "Positive", 1, 0))
+
+# Logistic regression
+model_sex <- glm(HBV_binary ~ N2Sex1, data = df10_clean, family = binomial)
+
+# Get tidy output with ORs and CIs
+model_results <- tidy(model_sex, conf.int = TRUE, exp = TRUE) %>%
+  mutate(across(estimate:conf.high, round, 2)) %>%
+  rename(
+    Term = term,
+    OR = estimate,
+    CI_low = conf.low,
+    CI_high = conf.high,
+    p_value = p.value
+  )
+
+```
+
+
+```{r, include=TRUE}
+# Print in kable format
+kable(model_results, format = "markdown", caption = "Logistic Regression: HBV Positive vs Not Positive") %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+
 ```{r}
-ggplot(data1, aes(x= N2Sex1)) + 
-  geom_bar(fill = "tomato")  +
-  labs(title = "Sex Distribution", x = "Sex", y = "Count")
+
+# Firth penalized logistic regression
+model_adj_firth <- logistf(
+  HBV_binary ~ N2Sex1 + AgeGroup + N10Whatisyourmaritalstatus +
+    N7Haveyouhadformaleducation1 + N49Haveyoubeencircumcised +
+    N20Howmanysexualpartnershaveyouhadinthelast12months +
+    N44Doyoushave + N15Doyouconsumealcohol,
+  data = df10_clean
+)
+
+# Summary of results
+summary(model_adj_firth)
+
+# Extract odds ratios with CI
+exp(cbind(OR = coef(model_adj_firth), confint(model_adj_firth)))
+
+
+```
+
+```{r}
+library(tibble)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Extract OR and CI
+results_firth <- exp(cbind(OR = coef(model_adj_firth),
+                           confint(model_adj_firth))) %>%
+  as.data.frame() %>%
+  rownames_to_column("Variable")
+
+# Print to check names
+print(colnames(results_firth))
+
+# Force rename to consistent names
+colnames(results_firth) <- c("Variable", "OR", "CI_lower", "CI_upper")
+
+# Create clean table
+results_firth <- results_firth %>%
+  mutate(`aOR (95% CI)` = sprintf("%.2f (%.2f–%.2f)", OR, CI_lower, CI_upper)) %>%
+  select(Variable, `aOR (95% CI)`)
+
+# Display nicely
+results_firth %>%
+  kable(caption = "Adjusted Odds Ratios from Firth Penalized Logistic Regression") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+
+```
+
+```{r}
+sapply(df10_clean %>% select(
+  N2Sex1, 
+  AgeGroup,
+  N10Whatisyourmaritalstatus,
+  N7Haveyouhadformaleducation1,
+  N49Haveyoubeencircumcised,
+  N20Howmanysexualpartnershaveyouhadinthelast12months,
+  N44Doyoushave,
+  N15Doyouconsumealcohol
+), function(x) table(x, useNA = "ifany"))
+
+```
+
+```{r}
+df10_clean1 <- df10_clean %>% droplevels()
+
+```
+
+```{r}
+df10_clean1 %>%
+  summarise(
+    Sex_levels = n_distinct(N2Sex1),
+    Age_levels = n_distinct(AgeGroup),
+    Marital_levels = n_distinct(N10Whatisyourmaritalstatus),
+    Education_levels = n_distinct(N7Haveyouhadformaleducation1),
+    Circumcised_levels = n_distinct(N49Haveyoubeencircumcised),
+    Partners_levels = n_distinct(N20Howmanysexualpartnershaveyouhadinthelast12months),
+    Shave_levels = n_distinct(N44Doyoushave),
+    Alcohol_levels = n_distinct(N15Doyouconsumealcohol)
+  )
+
+```
+
+
+```{r}
+# List of variables you want to check
+vars <- c("N2Sex1", 
+          "AgeGroup", 
+          "N10Whatisyourmaritalstatus", 
+          "N7Haveyouhadformaleducation1", 
+          "N49Haveyoubeencircumcised", 
+          "N20Howmanysexualpartnershaveyouhadinthelast12months", 
+          "N44Doyoushave", 
+          "N15Doyouconsumealcohol")
+
+# Loop through and print tables
+for (v in vars) {
+  cat("\n============================\n")
+  cat("Variable:", v, "\n")
+  print(table(df10_clean1[[v]], useNA = "ifany"))
+}
+
+
+```
+
+```{r}
+lapply(df10_clean1[, c("N2Sex1", "AgeGroup", "N10Whatisyourmaritalstatus",
+                       "N7Haveyouhadformaleducation1", "N49Haveyoubeencircumcised",
+                       "N20Howmanysexualpartnershaveyouhadinthelast12months",
+                       "N15Doyouconsumealcohol")], function(x) levels(as.factor(x)))
+
+```
+
+```{r}
+df10_clean1 <- droplevels(df10_clean1)
+
+```
+
+```{r}
+vars <- c("N2Sex1", "AgeGroup", "N10Whatisyourmaritalstatus",
+          "N7Haveyouhadformaleducation1", "N49Haveyoubeencircumcised",
+          "N20Howmanysexualpartnershaveyouhadinthelast12months",
+          "N15Doyouconsumealcohol", "HBV_binary")
+
+df_sub <- df10_clean1[complete.cases(df10_clean1[, vars]), vars]
+
+lapply(df_sub, function(x) table(x, useNA="ifany"))
+
+
+```
+
+
+
+
+```{r}
+vars <- c("N2Sex1", "AgeGroup", "N10Whatisyourmaritalstatus",
+          "N7Haveyouhadformaleducation1", "N49Haveyoubeencircumcised",
+          "N20Howmanysexualpartnershaveyouhadinthelast12months",
+          "N15Doyouconsumealcohol")
+
+library(logistf)
+
+results <- lapply(vars, function(v) {
+  f <- as.formula(paste("HBV_binary ~", v))
+  m <- try(logistf(f, data = df10_clean1), silent = TRUE)
+  return(m)
+})
+
+names(results) <- vars
+results
+
+
+
+
+```
+
+```{r}
+model_reduced <- logistf(HBV_binary ~ N49Haveyoubeencircumcised + AgeGroup,
+                         data = df10_clean1)
+summary(model_reduced)
+
+```
+
+
+
+```{r}
+results_reduced <- results_reduced %>%
+  rename(
+    CI_lower = `Lower 95%`,
+    CI_upper = `Upper 95%`
+  ) %>%
+  mutate(`aOR (95% CI)` = sprintf("%.2f (%.2f–%.2f)", OR, CI_lower, CI_upper)) %>%
+  select(Variable, `aOR (95% CI)`)
+
+results_reduced %>%
+  kable(caption = "Adjusted Odds Ratios from Reduced Firth Penalized Logistic Regression") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+
+```
+
+
+
+```{r}
+# Count levels
+var_levels <- df10_clean11 %>%
+  summarise(
+    across(
+      .cols = c(N2Sex1, AgeGroup, N10Whatisyourmaritalstatus,
+                N7Haveyouhadformaleducation1, N49Haveyoubeencircumcised,
+                N20Howmanysexualpartnershaveyouhadinthelast12months,
+                N44Doyoushave, N15Doyouconsumealcohol),
+      ~ n_distinct(na.omit(.))
+    )
+  ) %>%
+  pivot_longer(everything(), names_to = "var", values_to = "n_levels")
+
+# Keep only variables with >1 level
+valid_vars <- var_levels %>% filter(n_levels > 1) %>% pull(var)
+
+# Build formula dynamically
+formula_firth <- as.formula(
+  paste("HBV_binary ~", paste(valid_vars, collapse = " + "))
+)
+
+# Run model
+model_adj_firth <- logistf(formula_firth, data = df10_clean11)
+summary(model_adj_firth)
+
+```
+
+
+
+```{r}
+# Ensure categorical variables are factors and set reference levels
+df10_clean1 <- df10_clean1 %>%
+  mutate(
+    N2Sex1 = factor(N2Sex1, levels = c("Male", "Female")),   # Male = reference
+    N7Haveyouhadformaleducation1 = factor(N7Haveyouhadformaleducation1, levels = c("No", "Yes")),
+    N49Haveyoubeencircumcised = factor(N49Haveyoubeencircumcised, levels = c("No", "Yes")),
+    N44Doyoushave = factor(N44Doyoushave, levels = c("No", "Yes")),
+    N15Doyouconsumealcohol = factor(N15Doyouconsumealcohol, levels = c("No", "Yes")),
+    N10Whatisyourmaritalstatus = factor(N10Whatisyourmaritalstatus,
+                                        levels = c("Married", "Single", "Separated")) # Married = reference
+  )
+
+# Run Firth penalized logistic regression
+library(logistf)
+
+model_adj_firth <- logistf(
+  HBV_binary ~ N2Sex1 + AgeGroup + N10Whatisyourmaritalstatus +
+    N7Haveyouhadformaleducation1 + N49Haveyoubeencircumcised +
+    N20Howmanysexualpartnershaveyouhadinthelast12months +
+    N44Doyoushave + N15Doyouconsumealcohol,
+  data = df10_clean1
+)
+
+summary(model_adj_firth)
+
+```
+
+
+
+```{r}
+final_table <- sex_tab %>%
+  left_join(
+    or_sex %>% select(term, estimate, conf.low, conf.high),
+    by = c("Sex" = "term")   # <-- use the correct column name
+  ) %>%
+  mutate(
+    uOR = ifelse(
+      is.na(estimate), 
+      "Ref", 
+      sprintf("%.1f (%.1f-%.1f)", estimate, conf.low, conf.high)
+    )
+  ) %>%
+  select(Sex, Positive, Negative, uOR)
+
+
+```
+
+```{r}
+library(dplyr)
+library(broom)
+
+make_table <- function(var, data, model_adj) {
   
-```
-
-```{r}
-ggplot(data1, aes(x = N9Whatisyourreligion)) +
-  geom_bar(fill = "orange") +
-  labs(title = "Religion of Respondents", x = "Religion", y = "Count") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
-```{r}
-
-# 1. Age groups
-data1 <- data1 %>%
-  mutate(AgeGroup = cut(N1Ageinyears1,
-                        breaks = c(-Inf, 24, 34, 44, 54, Inf),
-                        labels = c("<25", "25-34", "35-44", "45-54", "≥55")))
-
-# 2. Summarize a helper function
-summarize_var <- function(df, var) {
-  df %>%
-    tabyl({{ var }}) %>%
-    mutate(percent = round(100 * percent, 1),
-           result = paste0(n, " (", percent, ")")) %>%
-    select(levels = 1, result)
-}
-
-# 3. Apply to each characteristic
-age_tab   <- summarize_var(data1, AgeGroup)
-sex_tab   <- summarize_var(data1, N2Sex1)
-cadre_tab <- summarize_var(data1, N5Whatisyouroccupation1)
-edu_tab   <- summarize_var(data1, N7Haveyouhadformaleducation1)
-exp_tab   <- summarize_var(data1, N5years1)
-hosp_tab  <- summarize_var(data1, N6Areyouemployedinhospital1)
-empl_tab  <- summarize_var(data1, EmployedintheHealthSector)
-
-# 4. Print tables
-list(
-  Age = age_tab,
-  Sex = sex_tab,
-  Cadre = cadre_tab,
-  Education = edu_tab,
-  Experience = exp_tab,
-  HealthFacility = hosp_tab,
-  Employer = empl_tab
-)
-
-```
-
-
-
-```{r}
-# Force levels to character inside the helper function
-summarize_var <- function(data1, var) {
-  df %>%
-    janitor::tabyl({{ var }}) %>%
-    mutate(percent = round(100 * percent, 1),
-           result = paste0(n, " (", percent, ")"),
-           levels = as.character(!!sym(names(.)[1]))) %>%   # <-- force to character
-    select(levels, result)
-}
-
-```
-
-
-```{r}
-# --- Helper function ---
-summarize_var <- function(df, var, label) {
-  df %>%
-    janitor::tabyl({{ var }}) %>%
-    mutate(
-      percent = round(100 * percent, 1),
-      result = paste0(n, " (", percent, "%)"),
-      levels = as.character(!!sym(names(.)[1])),   # force to character
-      Characteristic = label
+  # Descriptive counts
+  tab <- data %>%
+    group_by(!!sym(var), HBV_Status) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    tidyr::pivot_wider(
+      names_from = HBV_Status,
+      values_from = n,
+      values_fill = 0
     ) %>%
-    select(Characteristic, levels, result)
+    mutate(
+      Pos_pct = round(100 * Positive / sum(Positive), 1),
+      Neg_pct = round(100 * Negative / sum(Negative), 1),
+      Positive = paste0(Positive, "(", Pos_pct, ")"),
+      Negative = paste0(Negative, "(", Neg_pct, ")")
+    ) %>%
+    select(Characteristic = !!sym(var), Positive, Negative)
+  
+  # Unadjusted model
+  model_uni <- glm(HBV_binary ~ get(var), data = data, family = binomial)
+  or_uni <- tidy(model_uni, exponentiate = TRUE, conf.int = TRUE) %>%
+    mutate(uOR = sprintf("%.1f (%.1f-%.1f)", estimate, conf.low, conf.high)) %>%
+    select(term, uOR)
+  
+  # Adjusted model (already fitted once)
+  or_adj <- tidy(model_adj, exponentiate = TRUE, conf.int = TRUE) %>%
+    mutate(aOR = sprintf("%.1f (%.1f-%.1f)", estimate, conf.low, conf.high)) %>%
+    select(term, aOR)
+  
+  # Merge together
+  tab %>%
+    left_join(or_uni, by = c("Characteristic" = "term")) %>%
+    left_join(or_adj, by = c("Characteristic" = "term")) %>%
+    mutate(
+      uOR = ifelse(is.na(uOR), "Ref", uOR),
+      aOR = ifelse(is.na(aOR), "", aOR)
+    )
 }
 
-# --- Apply to your variables ---
-age_tab   <- summarize_var(data1, AgeGroup, "Age group")
-sex_tab   <- summarize_var(data1, N2Sex1, "Sex")
-cadre_tab <- summarize_var(data1, N5Whatisyouroccupation1, "Staff cadre")
-edu_tab   <- summarize_var(data1, N7Haveyouhadformaleducation1, "Education level")
-exp_tab   <- summarize_var(data1, N5years1, "Years in practice")
-hosp_tab  <- summarize_var(data1, N6Areyouemployedinhospital1, "Health facility")
-empl_tab  <- summarize_var(data1, EmployedintheHealthSector, "Employer")
+```
 
-# --- Combine safely ---
-final_tab <- bind_rows(age_tab, sex_tab, cadre_tab, edu_tab, exp_tab, hosp_tab, empl_tab)
+```{r}
+df10_clean <- df10_clean %>%
+  mutate(
+    across(c(N2Sex1, AgeGroup, N10Whatisyourmaritalstatus,
+             N7Haveyouhadformaleducation1, N49Haveyoubeencircumcised,
+             N20Howmanysexualpartnershaveyouhadinthelast12months,
+             N44Doyoushave, N15Doyouconsumealcohol), as.factor)
+  )
 
-# --- Print in kable ---
-knitr::kable(
-  final_tab,
-  caption = "Characteristics of Study Participants",
-  col.names = c("Characteristic", "Category", "Frequency (%)"),
-  align = "lcc"
+
+```
+
+```{r}
+make_table <- function(var, data, model_adj) {
+  
+  var_sym <- rlang::sym(var)
+  
+  # Descriptive counts
+  tab <- data %>%
+    group_by(!!var_sym, HBV_Status) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    tidyr::pivot_wider(
+      names_from = HBV_Status,
+      values_from = n,
+      values_fill = 0
+    ) %>%
+    mutate(
+      Pos_pct = round(100 * Positive / sum(Positive), 1),
+      Neg_pct = round(100 * Negative / sum(Negative), 1),
+      Positive = paste0(Positive, "(", Pos_pct, ")"),
+      Negative = paste0(Negative, "(", Neg_pct, ")")
+    ) %>%
+    select(Characteristic = !!var_sym, Positive, Negative)
+  
+  # Unadjusted model
+  model_uni <- suppressWarnings(glm(HBV_binary ~ get(var), data = data, family = binomial))
+  or_uni <- broom::tidy(model_uni, exponentiate = TRUE, conf.int = TRUE) %>%
+    mutate(uOR = sprintf("%.1f (%.1f-%.1f)", estimate, conf.low, conf.high)) %>%
+    select(term, uOR)
+  
+  # Adjusted model
+  or_adj <- broom::tidy(model_adj, exponentiate = TRUE, conf.int = TRUE) %>%
+    mutate(aOR = sprintf("%.1f (%.1f-%.1f)", estimate, conf.low, conf.high)) %>%
+    select(term, aOR)
+  
+  # Merge
+  tab %>%
+    left_join(or_uni, by = c("Characteristic" = "term")) %>%
+    left_join(or_adj, by = c("Characteristic" = "term")) %>%
+    mutate(
+      uOR = ifelse(is.na(uOR), "Ref", uOR),
+      aOR = ifelse(is.na(aOR), "", aOR)
+    )
+}
+
+```
+
+
+```{r}
+# Re-fit adjusted model with factors
+model_adj <- glm(
+  HBV_binary ~ N2Sex1 + AgeGroup + N10Whatisyourmaritalstatus +
+    N7Haveyouhadformaleducation1 + N49Haveyoubeencircumcised +
+    N20Howmanysexualpartnershaveyouhadinthelast12months +
+    N44Doyoushave + N15Doyouconsumealcohol,
+  data = df10_clean,
+  family = binomial
+)
+
+# Generate tables
+sex_tab <- make_table("N2Sex1", df10_clean, model_adj)
+age_tab <- make_table("AgeGroup", df10_clean, model_adj)
+marital_tab <- make_table("N10Whatisyourmaritalstatus", df10_clean, model_adj)
+education_tab <- make_table("N7Haveyouhadformaleducation1", df10_clean, model_adj)
+circum_tab <- make_table("N49Haveyoubeencircumcised", df10_clean, model_adj)
+partner_tab <- make_table("N20Howmanysexualpartnershaveyouhadinthelast12months", df10_clean, model_adj)
+shave_tab <- make_table("N44Doyoushave", df10_clean, model_adj)
+alcohol_tab <- make_table("N15Doyouconsumealcohol", df10_clean, model_adj)
+
+# Combine into one final table
+final_table <- bind_rows(
+  tibble(Characteristic = "Sex"), sex_tab,
+  tibble(Characteristic = "Age group"), age_tab,
+  tibble(Characteristic = "Marital status"), marital_tab,
+  tibble(Characteristic = "Formal education"), education_tab,
+  tibble(Characteristic = "Circumcised"), circum_tab,
+  tibble(Characteristic = "Sexual partners"), partner_tab,
+  tibble(Characteristic = "Shaving"), shave_tab,
+  tibble(Characteristic = "Alcohol"), alcohol_tab
 )
 
 ```
 
+```{r}
+final_table %>%
+  kable(
+    caption = "Table: Factors associated with HBV positivity",
+    col.names = c("Characteristics", "Positive (n=..)", "Negative (n=..)", "uOR (95% CI)", "aOR (95% CI)"),
+    align = "lcccc"
+  ) %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+```
+
+
+
+
+```{r}
+sex_tab <- make_table("N2Sex1", df10_clean, model_adj)
+age_tab <- make_table("AgeGroup", df10_clean, model_adj)
+marital_tab <- make_table("N10Whatisyourmaritalstatus", df10_clean, model_adj)
+education_tab <- make_table("N7Haveyouhadformaleducation1", df10_clean, model_adj)
+circum_tab <- make_table("N49Haveyoubeencircumcised", df10_clean, model_adj)
+partner_tab <- make_table("N20Howmanysexualpartnershaveyouhadinthelast12months", df10_clean, model_adj)
+shave_tab <- make_table("N44Doyoushave", df10_clean, model_adj)
+alcohol_tab <- make_table("N15Doyouconsumealcohol", df10_clean, model_adj)
+
+final_table <- bind_rows(
+  tibble(Characteristic = "Sex"), sex_tab,
+  tibble(Characteristic = "Age group"), age_tab,
+  tibble(Characteristic = "Marital status"), marital_tab,
+  tibble(Characteristic = "Formal education"), education_tab,
+  tibble(Characteristic = "Circumcised"), circum_tab,
+  tibble(Characteristic = "Sexual partners"), partner_tab,
+  tibble(Characteristic = "Shaving"), shave_tab,
+  tibble(Characteristic = "Alcohol"), alcohol_tab
+)
+
+```
 
 
 
