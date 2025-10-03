@@ -659,53 +659,42 @@ Sub-County</caption>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code>df10 %&gt;%
-  # remove missing/nulls in Age and Sex
-  filter(!is.na(N1Ageinyears1), !is.na(N2Sex1), N2Sex1 != &quot;&quot;) %&gt;%
-  
-  # create age groups
-  mutate(AgeGroup = cut(N1Ageinyears1,
-                        breaks = c(0, 14, 24, 34, 44, 100),
-                        labels = c(&quot;0-14&quot;, &quot;15-24&quot;, &quot;25-34&quot;, &quot;35-44&quot;, &quot;45+&quot;),
-                        right = TRUE)) %&gt;%
-  
-  # group and summarise
-  group_by(AgeGroup, N2Sex1) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  
-  # add percentage
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  
-  # pretty table
-  kable(caption = &quot;Table 1: Age and Sex Distribution&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<pre class="r"><code>demo_table %&gt;%
+  kable(&quot;html&quot;,
+        caption = &quot;Table 1: Demographic, Reproductive, Behavioral, and Cultural Characteristics of Respondents&quot;,
+        col.names = c(&quot;Question&quot;, &quot;Response&quot;, &quot;Frequency&quot;, &quot;%&quot;)) %&gt;%
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;),
+                position = &quot;center&quot;) %&gt;%
+  collapse_rows(columns = 1, valign = &quot;top&quot;)</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption>
-Table 1: Age and Sex Distribution
+Table 1: Demographic, Reproductive, Behavioral, and Cultural
+Characteristics of Respondents
 </caption>
 <thead>
 <tr>
 <th style="text-align:left;">
-AgeGroup
+Question
 </th>
 <th style="text-align:left;">
-N2Sex1
+Response
 </th>
 <th style="text-align:right;">
-n
+Frequency
 </th>
 <th style="text-align:right;">
-percent
+%
 </th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left;">
-15-24
+<td style="text-align:left;vertical-align: top !important;" rowspan="8">
+Age and Sex Distribution
 </td>
 <td style="text-align:left;">
-Female
+15-24 / Female
 </td>
 <td style="text-align:right;">
 14
@@ -716,10 +705,7 @@ Female
 </tr>
 <tr>
 <td style="text-align:left;">
-15-24
-</td>
-<td style="text-align:left;">
-Male
+15-24 / Male
 </td>
 <td style="text-align:right;">
 17
@@ -730,10 +716,7 @@ Male
 </tr>
 <tr>
 <td style="text-align:left;">
-25-34
-</td>
-<td style="text-align:left;">
-Female
+25-34 / Female
 </td>
 <td style="text-align:right;">
 40
@@ -744,10 +727,7 @@ Female
 </tr>
 <tr>
 <td style="text-align:left;">
-25-34
-</td>
-<td style="text-align:left;">
-Male
+25-34 / Male
 </td>
 <td style="text-align:right;">
 24
@@ -758,10 +738,7 @@ Male
 </tr>
 <tr>
 <td style="text-align:left;">
-35-44
-</td>
-<td style="text-align:left;">
-Female
+35-44 / Female
 </td>
 <td style="text-align:right;">
 33
@@ -772,10 +749,7 @@ Female
 </tr>
 <tr>
 <td style="text-align:left;">
-35-44
-</td>
-<td style="text-align:left;">
-Male
+35-44 / Male
 </td>
 <td style="text-align:right;">
 24
@@ -786,10 +760,7 @@ Male
 </tr>
 <tr>
 <td style="text-align:left;">
-45+
-</td>
-<td style="text-align:left;">
-Female
+45+ / Female
 </td>
 <td style="text-align:right;">
 53
@@ -800,10 +771,7 @@ Female
 </tr>
 <tr>
 <td style="text-align:left;">
-45+
-</td>
-<td style="text-align:left;">
-Male
+45+ / Male
 </td>
 <td style="text-align:right;">
 63
@@ -812,35 +780,10 @@ Male
 23.5
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code># 2a. Education Status
-df1 %&gt;%
-  filter(!is.na(N7Haveyouhadformaleducation1), N7Haveyouhadformaleducation1 != &quot;&quot;) %&gt;% 
-  group_by(N7Haveyouhadformaleducation1) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 2: Education Status of Respondents&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 2: Education Status of Respondents
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N7Haveyouhadformaleducation1
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Education Status of Respondents
+</td>
 <td style="text-align:left;">
 Missing
 </td>
@@ -873,34 +816,10 @@ Yes
 79.4
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(!is.na(N10Whatisyourmaritalstatus), N10Whatisyourmaritalstatus != &quot;&quot;) %&gt;%
-  group_by(N10Whatisyourmaritalstatus) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 4: Marital Status of Respondents&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 4: Marital Status of Respondents
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N10Whatisyourmaritalstatus
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="5">
+Marital Status of Respondents
+</td>
 <td style="text-align:left;">
 Married
 </td>
@@ -955,34 +874,10 @@ Widower
 0.4
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(!is.na(N9Whatisyourreligion)) %&gt;%   # &lt;- added %&gt;%
-  group_by(N9Whatisyourreligion) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 5: Religion of Respondents&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 5: Religion of Respondents
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N9Whatisyourreligion
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Religion of Respondents
+</td>
 <td style="text-align:left;">
 Christianity
 </td>
@@ -1015,34 +910,10 @@ None
 7.7
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(N2Sex1 == &quot;Female&quot; &amp; !is.na(N3Areyoucurrentlypregnant1)) %&gt;%
-  group_by(N3Areyoucurrentlypregnant1) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 6: Pregnancy Status (Females only)&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 6: Pregnancy Status (Females only)
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N3Areyoucurrentlypregnant1
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Pregnancy Status (Females only)
+</td>
 <td style="text-align:left;">
 Missing
 </td>
@@ -1075,34 +946,10 @@ Yes
 5.0
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(!is.na(N15Doyouconsumealcohol)) %&gt;%
-  group_by(N15Doyouconsumealcohol) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 7: Alcohol Consumption among Respondents&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 7: Alcohol Consumption among Respondents
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N15Doyouconsumealcohol
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Alcohol Consumption
+</td>
 <td style="text-align:left;">
 Missing
 </td>
@@ -1135,35 +982,11 @@ Yes
 14.7
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(!is.na(N20Howmanysexualpartnershaveyouhadinthelast12months)) %&gt;%
-  group_by(N20Howmanysexualpartnershaveyouhadinthelast12months) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 8: Number of Sexual Partners in Last 12 Months&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 8: Number of Sexual Partners in Last 12 Months
-</caption>
-<thead>
 <tr>
-<th style="text-align:right;">
-N20Howmanysexualpartnershaveyouhadinthelast12months
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:right;">
+<td style="text-align:left;vertical-align: top !important;" rowspan="5">
+Number of Sexual Partners in Last 12 Months
+</td>
+<td style="text-align:left;">
 0
 </td>
 <td style="text-align:right;">
@@ -1174,7 +997,7 @@ percent
 </td>
 </tr>
 <tr>
-<td style="text-align:right;">
+<td style="text-align:left;">
 1
 </td>
 <td style="text-align:right;">
@@ -1185,7 +1008,7 @@ percent
 </td>
 </tr>
 <tr>
-<td style="text-align:right;">
+<td style="text-align:left;">
 2
 </td>
 <td style="text-align:right;">
@@ -1196,7 +1019,7 @@ percent
 </td>
 </tr>
 <tr>
-<td style="text-align:right;">
+<td style="text-align:left;">
 3
 </td>
 <td style="text-align:right;">
@@ -1207,7 +1030,7 @@ percent
 </td>
 </tr>
 <tr>
-<td style="text-align:right;">
+<td style="text-align:left;">
 4
 </td>
 <td style="text-align:right;">
@@ -1217,34 +1040,10 @@ percent
 0.4
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(!is.na(N49Haveyoubeencircumcised)) %&gt;%
-  group_by(N49Haveyoubeencircumcised) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 9: Circumcision Status&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 9: Circumcision Status
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N49Haveyoubeencircumcised
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Circumcision Status
+</td>
 <td style="text-align:left;">
 Missing
 </td>
@@ -1277,34 +1076,10 @@ Yes
 56.2
 </td>
 </tr>
-</tbody>
-</table>
-<pre class="r"><code>df10 %&gt;%
-  filter(!is.na(N54Haveyouhadanytraditionalmarkstattoosbodyincisionsorpiercingsd)) %&gt;%
-  group_by(N54Haveyouhadanytraditionalmarkstattoosbodyincisionsorpiercingsd) %&gt;%
-  summarise(n = n(), .groups = &quot;drop&quot;) %&gt;%
-  mutate(percent = round(100 * n / sum(n), 1)) %&gt;%
-  kable(caption = &quot;Table 10: Traditional Marks / Tattoos / Piercings&quot;) %&gt;%
-  kable_styling(full_width = FALSE, position = &quot;center&quot;)</code></pre>
-<table class="table" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
-<caption>
-Table 10: Traditional Marks / Tattoos / Piercings
-</caption>
-<thead>
 <tr>
-<th style="text-align:left;">
-N54Haveyouhadanytraditionalmarkstattoosbodyincisionsorpiercingsd
-</th>
-<th style="text-align:right;">
-n
-</th>
-<th style="text-align:right;">
-percent
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Traditional Marks / Tattoos / Piercings
+</td>
 <td style="text-align:left;">
 Missing
 </td>
@@ -1504,6 +1279,1183 @@ results_firth</code></pre>
 ## 5                      AgeGroup≥55 1.67 (0.00–1872.34)
 ## 6 N10WhatisyourmaritalstatusSingle    0.11 (0.00–6.77)
 ## 7                 N44DoyoushaveYes  1.00 (0.00–257.80)</code></pre>
+<pre class="r"><code>## Standardize column names across all attitude tables
+att_list &lt;- list(att1, att2, att3, att4, att5, att6, att7, att8) %&gt;%
+  lapply(function(df) {
+    df &lt;- df %&gt;%
+      rename(Frequency = ifelse(&quot;n&quot; %in% names(df), &quot;n&quot;, names(df)[3]),
+             Percent   = ifelse(!(&quot;Percent&quot; %in% names(df)), names(df)[4], &quot;Percent&quot;))
+    return(df)
+  })
+
+# Combine all attitude subsections
+attitude_table &lt;- bind_rows(att_list) %&gt;%
+  select(Question, Response, Frequency, Percent)
+
+# Nicely print
+attitude_table %&gt;%
+  kable(&quot;html&quot;, 
+        caption = &quot;Table 2: Attitudes towards Hepatitis B among respondents (Baringo County, Kenya, 2019)&quot;,
+        col.names = c(&quot;Attitude items&quot;, &quot;Response&quot;, &quot;Frequency&quot;, &quot;%&quot;)) %&gt;%
+  kable_styling(full_width = FALSE, 
+                bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;),
+                position = &quot;center&quot;) %&gt;%
+  collapse_rows(columns = 1, valign = &quot;top&quot;)</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Table 2: Attitudes towards Hepatitis B among respondents (Baringo
+County, Kenya, 2019)
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Attitude items
+</th>
+<th style="text-align:left;">
+Response
+</th>
+<th style="text-align:right;">
+Frequency
+</th>
+<th style="text-align:right;">
+%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Do you think you can get Hepatitis B? (n=203)
+</td>
+<td style="text-align:left;">
+Yes
+</td>
+<td style="text-align:right;">
+41
+</td>
+<td style="text-align:right;">
+19.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No
+</td>
+<td style="text-align:right;">
+164
+</td>
+<td style="text-align:right;">
+79.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="5">
+What would be your reaction if you found that you have Hepatitis B?
+(n=203)
+</td>
+<td style="text-align:left;">
+Fear
+</td>
+<td style="text-align:right;">
+106
+</td>
+<td style="text-align:right;">
+59.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Shame
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+2.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Surprise
+</td>
+<td style="text-align:right;">
+17
+</td>
+<td style="text-align:right;">
+9.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Saddness
+</td>
+<td style="text-align:right;">
+50
+</td>
+<td style="text-align:right;">
+28.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Other
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="8">
+Who would you talk to about your illness? (n=203)
+</td>
+<td style="text-align:left;">
+HealthWorker
+</td>
+<td style="text-align:right;">
+72
+</td>
+<td style="text-align:right;">
+55.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Spouse
+</td>
+<td style="text-align:right;">
+44
+</td>
+<td style="text-align:right;">
+33.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Parents
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+3.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Children
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+OtherRelatives
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ReligiousLeaders
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+6.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NoOne
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Other
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+What will you do if you think that you have symptoms of Hepatitis B?
+(n=203)
+</td>
+<td style="text-align:left;">
+HealthFacility
+</td>
+<td style="text-align:right;">
+201
+</td>
+<td style="text-align:right;">
+100.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TraditionalHealer
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SelfMedication
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="2">
+If you had symptoms of HB, at what stage will you go to the health
+facility? (n=203)
+</td>
+<td style="text-align:left;">
+After34Weeks
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+7.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Immediately
+</td>
+<td style="text-align:right;">
+181
+</td>
+<td style="text-align:right;">
+92.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="5">
+How expensive do you think is the diagnosis and treatment of Hepatitis
+B? (n=203)
+</td>
+<td style="text-align:left;">
+Free
+</td>
+<td style="text-align:right;">
+89
+</td>
+<td style="text-align:right;">
+50.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Reasonable
+</td>
+<td style="text-align:right;">
+17
+</td>
+<td style="text-align:right;">
+9.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SomewhatExp
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+3.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Expensive
+</td>
+<td style="text-align:right;">
+50
+</td>
+<td style="text-align:right;">
+28.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+8.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="9">
+Of the sources of information you mentioned, which one(s) do you trust
+the most? (n=203)
+</td>
+<td style="text-align:left;">
+Relatives
+</td>
+<td style="text-align:right;">
+72
+</td>
+<td style="text-align:right;">
+28.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ReligiousLeaders
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+3.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TraditionalLeaders
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:right;">
+7.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Chiefs
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+6.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+HealthWorkers
+</td>
+<td style="text-align:right;">
+60
+</td>
+<td style="text-align:right;">
+23.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CHV
+</td>
+<td style="text-align:right;">
+32
+</td>
+<td style="text-align:right;">
+12.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Poster
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+0.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Television
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+0.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Radio
+</td>
+<td style="text-align:right;">
+42
+</td>
+<td style="text-align:right;">
+16.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+How concerned are you if a family member may get sick with HB? (n=203)
+</td>
+<td style="text-align:left;">
+VeryConcerned
+</td>
+<td style="text-align:right;">
+184
+</td>
+<td style="text-align:right;">
+91.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SomewhatConcerned
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+8.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NotConcerned
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.5
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># Combine all
+practice_table &lt;- bind_rows(pr1, pr2, pr3, pr4) %&gt;%
+  select(Question, Response, Frequency, Percent)
+
+# Nicely print
+practice_table %&gt;%
+  kable(&quot;html&quot;, 
+        caption = &quot;Table 3: Practice related to Hepatitis B among the community, Baringo County, Kenya, 2019&quot;,
+        col.names = c(&quot;Practice items&quot;, &quot;Response&quot;, &quot;Frequency&quot;, &quot;%&quot;)) %&gt;%
+  kable_styling(full_width = FALSE, 
+                bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;),
+                position = &quot;center&quot;) %&gt;%
+  collapse_rows(columns = 1, valign = &quot;top&quot;)</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Table 3: Practice related to Hepatitis B among the community, Baringo
+County, Kenya, 2019
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Practice items
+</th>
+<th style="text-align:left;">
+Response
+</th>
+<th style="text-align:right;">
+Frequency
+</th>
+<th style="text-align:right;">
+%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Have you ever been screened for Hepatitis B? (n=206)
+</td>
+<td style="text-align:left;">
+Yes
+</td>
+<td style="text-align:right;">
+41
+</td>
+<td style="text-align:right;">
+19.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No
+</td>
+<td style="text-align:right;">
+164
+</td>
+<td style="text-align:right;">
+79.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Have you been vaccinated against Hepatitis B? (n=272)
+</td>
+<td style="text-align:left;">
+Yes
+</td>
+<td style="text-align:right;">
+138
+</td>
+<td style="text-align:right;">
+80.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:right;">
+11.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+8.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Do you go to a barber shop regularly? (n=272)
+</td>
+<td style="text-align:left;">
+Missing
+</td>
+<td style="text-align:right;">
+30
+</td>
+<td style="text-align:right;">
+11.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No
+</td>
+<td style="text-align:right;">
+98
+</td>
+<td style="text-align:right;">
+36.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Yes
+</td>
+<td style="text-align:right;">
+144
+</td>
+<td style="text-align:right;">
+52.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Does your barber change/sanitize blade or use safe equipment for
+ear/nose piercing? (n=100)
+</td>
+<td style="text-align:left;">
+Yes
+</td>
+<td style="text-align:right;">
+138
+</td>
+<td style="text-align:right;">
+80.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:right;">
+11.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+8.2
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># Combine all knowledge subsections (t1 to t8)
+knowledge_table_long &lt;- bind_rows(t1, t2, t3, t4, t5, t6, t7, t8) %&gt;%
+  select(Question, Response, Frequency, Percent)
+
+# Print nicely
+knowledge_table_long %&gt;%
+  kable(&quot;html&quot;, 
+        caption = &quot;Table 4: Responses to Hepatitis B knowledge among the community, Baringo County, Kenya, 2019&quot;,
+        col.names = c(&quot;Knowledge items&quot;, &quot;Response&quot;, &quot;Frequency&quot;, &quot;%&quot;)) %&gt;%
+  kable_styling(full_width = FALSE, 
+                bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;),
+                position = &quot;center&quot;) %&gt;%
+  collapse_rows(columns = 1, valign = &quot;top&quot;)</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Table 4: Responses to Hepatitis B knowledge among the community, Baringo
+County, Kenya, 2019
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Knowledge items
+</th>
+<th style="text-align:left;">
+Response
+</th>
+<th style="text-align:right;">
+Frequency
+</th>
+<th style="text-align:right;">
+%
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Ever heard of Hepatitis B (n=272)
+</td>
+<td style="text-align:left;">
+Yes13
+</td>
+<td style="text-align:right;">
+41
+</td>
+<td style="text-align:right;">
+19.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No14
+</td>
+<td style="text-align:right;">
+164
+</td>
+<td style="text-align:right;">
+79.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow21
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="4">
+Causes of Hepatitis B (n=203)
+</td>
+<td style="text-align:left;">
+Bacteria
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Virus
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+7.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Protozoa
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow12
+</td>
+<td style="text-align:right;">
+185
+</td>
+<td style="text-align:right;">
+92.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="9">
+Signs and Symptoms of HB disease (n=248)
+</td>
+<td style="text-align:left;">
+Fever1
+</td>
+<td style="text-align:right;">
+32
+</td>
+<td style="text-align:right;">
+9.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Fatique1
+</td>
+<td style="text-align:right;">
+36
+</td>
+<td style="text-align:right;">
+10.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Lossofappetite1
+</td>
+<td style="text-align:right;">
+45
+</td>
+<td style="text-align:right;">
+13.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nausea1
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:right;">
+5.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Abdominalpain1
+</td>
+<td style="text-align:right;">
+68
+</td>
+<td style="text-align:right;">
+19.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Jointpain
+</td>
+<td style="text-align:right;">
+89
+</td>
+<td style="text-align:right;">
+25.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Darkurine1
+</td>
+<td style="text-align:right;">
+37
+</td>
+<td style="text-align:right;">
+10.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Greycolouredstools
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+1.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Jaundice1
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+4.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Know how HB is transmitted (n=201)
+</td>
+<td style="text-align:left;">
+Yes
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+42.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No1
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+47.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Dontknow1
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+9.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="8">
+How is HB transmitted (n=79)
+</td>
+<td style="text-align:left;">
+Havingunprotectedsex
+</td>
+<td style="text-align:right;">
+46
+</td>
+<td style="text-align:right;">
+58.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Contactwithaninfectedperson
+</td>
+<td style="text-align:right;">
+18
+</td>
+<td style="text-align:right;">
+22.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bloodtransfusion
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+6.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Eatingcontaminatedfood
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+3.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Duringchildbirth
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Usingunsterilizedsyringesneedlesandsurgicalinstruments
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sharingofneedlesearpiercingtoothextractionandtattooinstruments
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+5.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Dontknow15
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+2.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Is Hepatitis B a preventable disease? (n=200)
+</td>
+<td style="text-align:left;">
+Yes1
+</td>
+<td style="text-align:right;">
+29
+</td>
+<td style="text-align:right;">
+10.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No3
+</td>
+<td style="text-align:right;">
+257
+</td>
+<td style="text-align:right;">
+89.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Dontknow3
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="7">
+How is Hepatitis B prevented? (n=87)
+</td>
+<td style="text-align:left;">
+Vaccination
+</td>
+<td style="text-align:right;">
+40
+</td>
+<td style="text-align:right;">
+49.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Havingprotectedsex
+</td>
+<td style="text-align:right;">
+26
+</td>
+<td style="text-align:right;">
+32.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Notsharingcuttingequipment
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+3.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Handwashing
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+11.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Usingsterilizedequipment
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Preparingfoodinhygienicconditions
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+2.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Screeningbloodbeforetransfusion
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;vertical-align: top !important;" rowspan="3">
+Do you know that Hepatitis B vaccination is given as part of national
+routine immunization? (n=200)
+</td>
+<td style="text-align:left;">
+Yes2
+</td>
+<td style="text-align:right;">
+13
+</td>
+<td style="text-align:right;">
+4.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+No4
+</td>
+<td style="text-align:right;">
+179
+</td>
+<td style="text-align:right;">
+67.0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DontKnow5
+</td>
+<td style="text-align:right;">
+75
+</td>
+<td style="text-align:right;">
+28.1
+</td>
+</tr>
+</tbody>
+</table>
 <p>###data2</p>
 <pre class="r"><code>final_table %&gt;%
   kable(
