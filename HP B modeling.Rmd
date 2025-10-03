@@ -31,25 +31,252 @@ df3 <- read_csv("D:/Downloads/Prison Excel Final Edit.csv")
 
 
 ```{r, include=FALSE}
-library(dplyr)
+# Convert relevant columns from Yes/No to numeric
+df1 <- df1 %>%
+  mutate(
+    PositiveforHepatitisB = ifelse(PositiveforHepatitisB == "Yes", 1, 0),
+    NegativeforHepatitisB = ifelse(NegativeforHepatitisB == "Yes", 1, 0),
+    Vaccination = ifelse(Vaccination == "Yes", 1, 0),
+    EmployedintheHealthSector = ifelse(EmployedintheHealthSector == "Yes", 1, 0)
+  )
 
+# Create summary table by SubCounty
 summary_table <- df1 %>%
   group_by(N6SubCounty) %>%
   summarise(
     No_tested = n(),
-    No_positive = sum(PositiveforHepatitisB == 1, na.rm = TRUE),
-    No_negative = sum(NegativeforHepatitisB == 1, na.rm = TRUE),
+    No_positive = sum(PositiveforHepatitisB, na.rm = TRUE),
+    No_negative = sum(NegativeforHepatitisB, na.rm = TRUE),
     Positivity_rate = round(100 * No_positive / No_tested, 1),
-    HCW_Vaccinated = sum(Vaccination == 1 & EmployedintheHealthSector == 1, na.rm = TRUE),
-    Total_vaccinated = sum(Vaccination == 1, na.rm = TRUE)
+    HCW_Vaccinated = sum(Vaccination & EmployedintheHealthSector, na.rm = TRUE),
+    Total_vaccinated = sum(Vaccination, na.rm = TRUE),
+    .groups = "drop"
   ) %>%
-  ungroup() %>%
+  # Add a row for totals
   bind_rows(
-    summarise(., across(where(is.numeric), \(x) sum(x, na.rm = TRUE)),
-              N6SubCounty = "Total")
+    summarise(
+      ., 
+      N6SubCounty = "Total",
+      across(where(is.numeric), ~ sum(.x, na.rm = TRUE))
+    )
+  )
+
+# Print nicely
+library(kableExtra)
+summary_table %>%
+  kable(
+    col.names = c("Sub-County", "No. Tested", "No. Positive", "No. Negative",
+                  "Positivity Rate (%)", "HCW Vaccinated", "Total Vaccinated"),
+    caption = "Table: Hepatitis B Testing and Vaccination Summary by Sub-County"
+  ) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+```{r}
+df1 <- df1 %>%
+  mutate(
+    # Create a single HBV_status column first
+    HBV_status = case_when(
+      PositiveforHepatitisB == "Yes" ~ "Positive",
+      NegativeforHepatitisB == "Yes" ~ "Negative",
+      Dontknow == "Yes" ~ "Dont know",
+      TRUE ~ NA_character_  # for missing/unrecorded
+    ),
+    
+    # Convert to numeric for summaries
+    PositiveforHepatitisB = ifelse(HBV_status == "Positive", 1, 0),
+    NegativeforHepatitisB = ifelse(HBV_status == "Negative", 1, 0),
+    Dontknow_HBV = ifelse(HBV_status == "Dont know", 1, 0),
+    
+    # Other binary columns
+    Vaccination = ifelse(Vaccination == "Yes", 1, 0),
+    EmployedintheHealthSector = ifelse(EmployedintheHealthSector == "Yes", 1, 0)
   )
 
 ```
+
+```{r}
+library(dplyr)
+
+# Step 1: Summarize by sub-county
+summary_table <- df1 %>%
+  group_by(N6SubCounty) %>%
+  summarise(
+    No_tested = n(),
+    No_positive = sum(PositiveforHepatitisB, na.rm = TRUE),
+    No_negative = sum(NegativeforHepatitisB, na.rm = TRUE),
+    No_dontknow = sum(Dontknow_HBV, na.rm = TRUE),
+    Positivity_rate = round(100 * No_positive / No_tested, 1),
+    HCW_Vaccinated = sum(Vaccination & EmployedintheHealthSector, na.rm = TRUE),
+    Total_vaccinated = sum(Vaccination, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Step 2: Add a total row
+total_row <- summary_table %>%
+  summarise(
+    N6SubCounty = "Total",
+    No_tested = sum(No_tested, na.rm = TRUE),
+    No_positive = sum(No_positive, na.rm = TRUE),
+    No_negative = sum(No_negative, na.rm = TRUE),
+    No_dontknow = sum(No_dontknow, na.rm = TRUE),
+    Positivity_rate = round(100 * sum(No_positive, na.rm = TRUE) / sum(No_tested, na.rm = TRUE), 1),
+    HCW_Vaccinated = sum(HCW_Vaccinated, na.rm = TRUE),
+    Total_vaccinated = sum(Total_vaccinated, na.rm = TRUE)
+  )
+
+# Step 3: Combine
+summary_table <- bind_rows(summary_table, total_row)
+
+# Step 4: Print nicely with kableExtra
+library(kableExtra)
+
+summary_table %>%
+  kable(
+    col.names = c("Sub-County", "No. Tested", "No. Positive", "No. Negative", 
+                  "No. Don't know", "Positivity Rate (%)", "HCW Vaccinated", "Total Vaccinated"),
+    caption = "Summary of Hepatitis B testing and vaccination by Sub-County, Baringo County, Kenya, 2019"
+  ) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+```{r}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Step 0: Convert Yes/No to 1/0
+df1 <- df1 %>%
+  mutate(
+    PositiveforHepatitisB = ifelse(PositiveforHepatitisB == "Yes", 1, 0),
+    NegativeforHepatitisB = ifelse(NegativeforHepatitisB == "Yes", 1, 0),
+    Dontknow_HBV = ifelse(Dontknow == "Yes", 1, 0),
+    Vaccination = ifelse(Vaccination == "Yes", 1, 0),
+    EmployedintheHealthSector = ifelse(EmployedintheHealthSector == "Yes", 1, 0)
+  )
+
+# Step 1: Summarize by sub-county
+summary_table <- df1 %>%
+  group_by(N6SubCounty) %>%
+  summarise(
+    No_tested = n(),
+    No_positive = sum(PositiveforHepatitisB, na.rm = TRUE),
+    No_negative = sum(NegativeforHepatitisB, na.rm = TRUE),
+    No_dontknow = sum(Dontknow_HBV, na.rm = TRUE),
+    HCW_Vaccinated = sum(Vaccination == 1 & EmployedintheHealthSector == 1, na.rm = TRUE),
+    Total_vaccinated = sum(Vaccination, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(Positivity_rate = round(100 * No_positive / No_tested, 1))
+
+# Step 2: Add total row
+total_row <- summary_table %>%
+  summarise(
+    N6SubCounty = "Total",
+    No_tested = sum(No_tested),
+    No_positive = sum(No_positive),
+    No_negative = sum(No_negative),
+    No_dontknow = sum(No_dontknow),
+    HCW_Vaccinated = sum(HCW_Vaccinated),
+    Total_vaccinated = sum(Total_vaccinated),
+    Positivity_rate = round(100 * sum(No_positive) / sum(No_tested), 1)
+  )
+
+summary_table <- bind_rows(summary_table, total_row)
+
+# Step 3: Pretty print
+summary_table %>%
+  kable(
+    col.names = c("Sub-County", "No. Tested", "No. Positive", "No. Negative",
+                  "No. Don't know", "HCW Vaccinated", "Total Vaccinated", "Positivity Rate (%)"),
+    caption = "Table: Summary of Hepatitis B Testing and Vaccination by Sub-County"
+  ) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+```{r}
+library(sf)
+library(dplyr)
+library(ggplot2)
+
+# Correct path with forward slashes
+shapefile_path <- "D:/Documents/R Studio/R_Statistical-Language/shapefiles/ke_subcounty(2)/ke_subcounty.shp"
+
+# Load shapefile
+subcounty_shape <- st_read(shapefile_path)
+
+# Filter to Baringo County only (assuming a column 'COUNTY' exists)
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo")
+```
+
+```{r}
+unique(baringo_shape$subcounty)
+```
+
+
+```{r}
+
+
+# Join with positivity data (replace NAME_2 with the actual subcounty column in shapefile)
+map_data <- baringo_shape %>%
+  left_join(
+    summary_table %>% filter(N6SubCounty != "Total") %>% select(N6SubCounty, Positivity_rate),
+    by = c("Mogotio Sub County" = "N6SubCounty")
+  )
+
+# Plot choropleth map
+ggplot(map_data) +
+  geom_sf(aes(fill = Positivity_rate), color = "black") +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
+  theme_minimal() +
+  labs(title = "Hepatitis B Positivity Rate in Baringo Sub-Counties",
+       fill = "Positivity (%)")
+
+```
+
+
+
+```{r}
+summary_table <- df1 %>%
+  group_by(N6SubCounty) %>%
+  summarise(
+    No_tested = n(),
+    No_positive = sum(PositiveforHepatitisB, na.rm = TRUE),
+    No_negative = sum(NegativeforHepatitisB, na.rm = TRUE),
+    No_dontknow = sum(Dontknow_HBV, na.rm = TRUE),
+    Positivity_rate = round(100 * No_positive / No_tested, 1),
+    HCW_Vaccinated = sum(Vaccination & EmployedintheHealthSector, na.rm = TRUE),
+    Total_vaccinated = sum(Vaccination, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  bind_rows(
+    summarise(., 
+              N6SubCounty = "Total",
+              across(where(is.numeric), ~ sum(.x, na.rm = TRUE))
+    )
+  )
+
+summary_table %>%
+  kable(
+    col.names = c("Sub-County", "No. Tested", "No. Positive", "No. Negative", "No. Don't know",
+                  "Positivity Rate (%)", "HCW Vaccinated", "Total Vaccinated"),
+    caption = "Table: Hepatitis B Testing and Vaccination Summary by Sub-County"
+  ) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
 
 
 
