@@ -203,47 +203,6 @@ summary_table %>%
 
 ```
 
-```{r}
-library(sf)
-library(dplyr)
-library(ggplot2)
-
-# Correct path with forward slashes
-shapefile_path <- "D:/Documents/R Studio/R_Statistical-Language/shapefiles/ke_subcounty(2)/ke_subcounty.shp"
-
-# Load shapefile
-subcounty_shape <- st_read(shapefile_path)
-
-# Filter to Baringo County only (assuming a column 'COUNTY' exists)
-baringo_shape <- subcounty_shape %>%
-  filter(county == "Baringo")
-```
-
-```{r}
-unique(baringo_shape$subcounty)
-```
-
-
-```{r}
-
-
-# Join with positivity data (replace NAME_2 with the actual subcounty column in shapefile)
-map_data <- baringo_shape %>%
-  left_join(
-    summary_table %>% filter(N6SubCounty != "Total") %>% select(N6SubCounty, Positivity_rate),
-    by = c("Mogotio Sub County" = "N6SubCounty")
-  )
-
-# Plot choropleth map
-ggplot(map_data) +
-  geom_sf(aes(fill = Positivity_rate), color = "black") +
-  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
-  theme_minimal() +
-  labs(title = "Hepatitis B Positivity Rate in Baringo Sub-Counties",
-       fill = "Positivity (%)")
-
-```
-
 
 
 ```{r}

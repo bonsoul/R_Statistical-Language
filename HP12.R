@@ -658,32 +658,212 @@ ggplot(data = baringo_shape) +
 
 
 
+#mapping
 
 
+install.packages("rnaturalearth")
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+install.packages("devtools")
 
 
+kenya_shape <- ne_states(country = "Kenya", returnclass = "sf")
 
 
+devtools::install_github("ropensci/rnaturalearthhires")
 
 
+kenya_shape <- subcounty_shape %>%
+  group_by(county) %>%
+  summarise()
 
 
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo") %>%
+  mutate(subcounty = gsub(" Sub County", "", subcounty))
+
+baringo_county <- kenya_shape %>%
+  filter(county == "Baringo")
 
 
+# Libraries
+library(ggplot2)
+library(dplyr)
+library(ggspatial)
+library(patchwork)
+library(ggtext)
 
-# Join with positivity data (replace NAME_2 with the actual subcounty column in shapefile)
-map_data <- baringo_shape %>%
-  left_join(
-    summary_table %>% filter(N6SubCounty != "Total") %>% select(N6SubCounty, Positivity_rate),
-    by = c("Mogotio Sub County" = "N6SubCounty")
+# Map 1: Baringo in Kenya
+map_kenya <- ggplot() +
+  geom_sf(data = kenya_shape, fill = "gray90", color = "white") +
+  geom_sf(data = baringo_county, fill = "#006d2c", color = "black") +
+  labs(title = "Location of Baringo County") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
   )
 
-# Plot choropleth map
-ggplot(map_data) +
-  geom_sf(aes(fill = Positivity_rate), color = "black") +
-  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
+# Map 2: Subcounties of Baringo
+map_baringo <- ggplot(data = baringo_shape) +
+  geom_sf(aes(fill = subcounty), color = "white", linewidth = 0.5) +
+  scale_fill_brewer(palette = "Set3", name = "Subcounties") +
+  geom_sf_text(aes(label = subcounty), size = 3, color = "black", fontface = "bold") +
+  labs(
+    title = "Subcounties",
+    subtitle = "Administrative boundaries showing the seven subcounties",
+    caption = "Source: Kenya Open Data / GADM | Map: ARANI"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
+    legend.position = "right",
+    panel.background = element_rect(fill = "aliceblue", color = NA)
+  ) +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3)
+
+# Combine both maps
+final_map <- map_kenya + map_baringo +
+  plot_annotation(
+    title = "Baringo County in National and Local Context",
+    theme = theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+  )
+
+# Display
+final_map
+
+
+
+
+#end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Required libraries
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(ggspatial)
+library(ggtext)
+library(patchwork)  # for combining plots
+
+# ---- Data Prep ----
+# Filter Baringo County
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo") %>%
+  mutate(subcounty = gsub(" Sub County", "", subcounty))
+
+baringo_county <- kenya_shape %>%
+  filter(county == "Baringo")
+
+# ---- Map 1: Baringo within Kenya ----
+map_kenya <- ggplot() +
+  geom_sf(data = kenya_shape, fill = "gray90", color = "white") +
+  geom_sf(data = baringo_county, fill = "#006d2c", color = "black") +
+  labs(title = "Location of Baringo County in Kenya") +
   theme_minimal() +
-  labs(title = "Hepatitis B Positivity Rate in Baringo Sub-Counties",
-       fill = "Positivity (%)")
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+# ---- Map 2: Baringo Subcounties ----
+map_baringo <- ggplot(data = baringo_shape) +
+  geom_sf(aes(fill = subcounty), color = "white", linewidth = 0.5) +
+  scale_fill_brewer(palette = "Set3", name = "Subcounties") +
+  geom_sf_text(aes(label = subcounty), size = 3, color = "black", fontface = "bold") +
+  labs(
+    title = "Subcounties of Baringo County",
+    subtitle = "Administrative boundaries showing the seven subcounties",
+    caption = "Source: Kenya Open Data / GADM | Map: Your Name"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
+    legend.position = "right",
+    panel.background = element_rect(fill = "aliceblue", color = NA)
+  ) +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3)
+
+# ---- Combine both maps ----
+final_map <- map_kenya + map_baringo +
+  plot_annotation(
+    title = "Baringo County in National and Local Context",
+    theme = theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+  )
+
+# Display
+final_map
+
 
 
