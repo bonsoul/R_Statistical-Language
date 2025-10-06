@@ -571,3 +571,119 @@ multi_model <- glm(fmla, data = DF4_complete, family = binomial)
 summary(multi_model)
 
 
+
+
+
+
+
+
+library(sf)
+library(dplyr)
+library(ggplot2)
+
+# Correct path with forward slashes
+shapefile_path <- "D:/Documents/R Studio/R_Statistical-Language/shapefiles/ke_subcounty(2)/ke_subcounty.shp"
+
+# Load shapefile
+subcounty_shape <- st_read(shapefile_path)
+
+# Filter to Baringo County only (assuming a column 'COUNTY' exists)
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo")
+
+
+baringo_shape <- baringo_shape %>%
+  mutate(subcounty = gsub(" Sub County", "", subcounty))
+
+
+unique(baringo_shape$subcounty)
+
+
+ggplot(data = baringo_shape) +
+  geom_sf(fill = "lightblue", color = "black") +
+  geom_sf_text(aes(label = subcounty), size = 3, color = "darkred") +
+  labs(title = "Subcounties of Baringo County, Kenya") +
+  theme_minimal()
+
+
+
+install.packages("ggspatial")
+
+
+library(ggplot2)
+library(sf)
+library(dplyr)
+library(ggspatial)
+library(ggtext)
+
+# Clean subcounty names
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo") %>%
+  mutate(subcounty = gsub(" Sub County", "", subcounty))
+
+# Plot
+
+ggplot(data = baringo_shape) +
+  geom_sf(aes(fill = subcounty), color = "white", linewidth = 0.6) +
+  scale_fill_brewer(palette = "Set3", name = "Subcounties") +
+  
+  # Labels
+  geom_sf_text(aes(label = subcounty), size = 3.5, color = "black", fontface = "bold") +
+  
+  # Title and layout
+  labs(
+    title = "Subcounties of <span style='color:#006d2c;'>Baringo County</span>, Kenya",
+    subtitle = "Administrative boundaries showing the seven subcounties",
+    caption = "Source: Kenya Open Data / GADM | Map: Your Name"
+  ) +
+  
+  # Themes and styling
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 11, hjust = 0.5, color = "gray40"),
+    legend.position = "right",
+    panel.grid.major = element_line(color = "gray90", linewidth = 0.3),
+    panel.background = element_rect(fill = "aliceblue", color = NA),
+    plot.background = element_rect(fill = "white", color = NA)
+  ) +
+  
+  # Add north arrow & scale bar
+  annotation_north_arrow(
+    location = "tr", which_north = "true",
+    style = north_arrow_fancy_orienteering
+  ) +
+  annotation_scale(location = "bl", width_hint = 0.3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Join with positivity data (replace NAME_2 with the actual subcounty column in shapefile)
+map_data <- baringo_shape %>%
+  left_join(
+    summary_table %>% filter(N6SubCounty != "Total") %>% select(N6SubCounty, Positivity_rate),
+    by = c("Mogotio Sub County" = "N6SubCounty")
+  )
+
+# Plot choropleth map
+ggplot(map_data) +
+  geom_sf(aes(fill = Positivity_rate), color = "black") +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
+  theme_minimal() +
+  labs(title = "Hepatitis B Positivity Rate in Baringo Sub-Counties",
+       fill = "Positivity (%)")
+
+
