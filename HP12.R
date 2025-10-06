@@ -746,16 +746,247 @@ final_map
 
 
 
+# Load libraries
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Step 0: Convert Yes/No to 1/0
+df1 <- DF1 %>%
+  mutate(
+    PositiveforHepatitisB = ifelse(PositiveforHepatitisB == "Yes", 1, 0),
+    NegativeforHepatitisB = ifelse(NegativeforHepatitisB == "Yes", 1, 0),
+    Dontknow_HBV = ifelse(Dontknow == "Yes", 1, 0),
+    Vaccination = ifelse(Vaccination == "Yes", 1, 0),
+    EmployedintheHealthSector = ifelse(EmployedintheHealthSector == "Yes", 1, 0)
+  )
+
+# Step 1: Summarize by sub-county
+summary_table <- df1 %>%
+  group_by(N6SubCounty) %>%
+  summarise(
+    No_tested = n(),
+    No_positive = sum(PositiveforHepatitisB, na.rm = TRUE),
+    No_negative = sum(NegativeforHepatitisB, na.rm = TRUE),
+    No_dontknow = sum(Dontknow_HBV, na.rm = TRUE),
+    HCW_Vaccinated = sum(Vaccination == 1 & EmployedintheHealthSector == 1, na.rm = TRUE),
+    Total_vaccinated = sum(Vaccination, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(Positivity_rate = round(100 * No_positive / No_tested, 1))
+
+# Step 2: Add total row
+total_row <- summary_table %>%
+  summarise(
+    N6SubCounty = "Total",
+    No_tested = sum(No_tested),
+    No_positive = sum(No_positive),
+    No_negative = sum(No_negative),
+    No_dontknow = sum(No_dontknow),
+    HCW_Vaccinated = sum(HCW_Vaccinated),
+    Total_vaccinated = sum(Total_vaccinated),
+    Positivity_rate = round(100 * sum(No_positive) / sum(No_tested), 1)
+  )
+
+summary_table <- bind_rows(summary_table, total_row)
+
+# Step 3: Pretty print as a formatted table
+summary_table %>%
+  rename(
+    "Sub-County" = N6SubCounty,
+    "No. Tested" = No_tested,
+    "No. Positive" = No_positive,
+    "No. Negative" = No_negative,
+    "No. Don't know" = No_dontknow,
+    "HCW Vaccinated" = HCW_Vaccinated,
+    "Total Vaccinated" = Total_vaccinated,
+    "Positivity Rate (%)" = Positivity_rate
+  ) %>%
+  kable(format = "pipe", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+
+####
+
+# --- Libraries ---
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(ggspatial)
+library(patchwork)
+
+# --- 1️⃣ Load shapefile ---
+subcounty_shape <- st_read("D:/Documents/R Studio/R_Statistical-Language/shapefiles/ke_subcounty(2)/ke_subcounty.shp")
+
+# --- 2️⃣ Filter for Baringo County only ---
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo") %>%
+  mutate(subcounty_clean = gsub(" Sub County", "", subcounty),
+         subcounty_clean = trimws(subcounty_clean))
+
+# --- 3️⃣ Prepare summary table ---
+summary_table_clean <- summary_table %>%
+  rename(
+    subcounty = N6SubCounty,
+    No_Tested = No_tested,
+    No_Positive = No_positive,
+    No_Negative = No_negative,
+    No_DontKnow = No_dontknow,
+    HCW_Vaccinated = HCW_Vaccinated,
+    Total_Vaccinated = Total_vaccinated,
+    Positivity_Rate = Positivity_rate
+  ) %>%
+  filter(subcounty != "Total")
+
+# --- 4️⃣ Join summary data with spatial layer ---
+baringo_data <- baringo_shape %>%
+  left_join(summary_table_clean, by = c("subcounty_clean" = "subcounty"))
+
+# --- 5️⃣ Define a helper function for quick plotting ---
+make_map <- function(data, fill_var, title, palette = "viridis") {
+  ggplot(data) +
+    geom_sf(aes(fill = .data[[fill_var]]), color = "white", linewidth = 0.4) +
+    scale_fill_viridis_c(option = "plasma", direction = -1, name = title, na.value = "gray90") +
+    geom_sf_text(aes(label = subcounty_clean), size = 3, color = "black", fontface = "bold") +
+    labs(title = title, subtitle = "Baringo County, Kenya") +
+    theme_minimal(base_size = 11) +
+    theme(
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
+      legend.position = "right",
+      panel.background = element_rect(fill = "aliceblue", color = NA)
+    )
+}
+
+# --- 6️⃣ Create multiple thematic maps ---
+map_tested      <- make_map(baringo_data, "No_Tested", "Number Tested")
+map_positive    <- make_map(baringo_data, "No_Positive", "Number Positive")
+map_vaccinated  <- make_map(baringo_data, "Total_Vaccinated", "Total Vaccinated")
+map_hcw_vax     <- make_map(baringo_data, "HCW_Vaccinated", "HCWs Vaccinated")
+map_rate        <- make_map(baringo_data, "Positivity_Rate", "Positivity Rate (%)")
+
+# --- 7️⃣ Combine maps into a single layout ---
+(map_tested + map_positive) /
+  (map_vaccinated + map_hcw_vax) /
+  map_rate +
+  plot_annotation(
+    title = "Hepatitis B Indicators by Subcounty — Baringo County",
+    caption = "Source: Field Data & Kenya Open Data | Map: Your Name",
+    theme = theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+  )
 
 
 
 
+####3
+
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(ggspatial)
+library(patchwork)
+
+# --- Function for pretty single maps ---
+make_map1 <- function(data, fill_var, title) {
+  ggplot(data) +
+    geom_sf(aes(fill = .data[[fill_var]]), color = "white", linewidth = 0.5) +
+    scale_fill_viridis_c(option = "plasma", direction = -1, name = title, na.value = "gray90") +
+    geom_sf_text(aes(label = subcounty_clean), size = 3.2, color = "black", fontface = "bold") +
+    labs(title = title, subtitle = "Baringo County, Kenya") +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
+      legend.position = "bottom",
+      legend.key.width = unit(2, "cm"),
+      panel.background = element_rect(fill = "aliceblue", color = NA)
+    )
+}
+
+make_map2 <- function(data, fill_var, title) {
+  ggplot(data) +
+    geom_sf(aes(fill = .data[[fill_var]]), color = "white", linewidth = 0.5) +
+    coord_sf(datum = NA) +  # ensures consistent scaling
+    scale_fill_viridis_c(option = "plasma", direction = -1, name = title, na.value = "gray90") +
+    geom_sf_text(aes(label = subcounty_clean), size = 3.2, color = "black", fontface = "bold") +
+    labs(title = title, subtitle = "Baringo County, Kenya") +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 10, hjust = 0.5, color = "gray40"),
+      legend.position = "bottom",
+      legend.key.width = unit(2, "cm"),
+      panel.background = element_rect(fill = "aliceblue", color = NA)
+    )
+}
+
+
+# --- Make all thematic maps ---
+map_tested     <- make_map2(baringo_data, "No_Tested", "No. Tested")
+map_positive   <- make_map2(baringo_data, "No_Positive", "No. Positive")
+map_negative   <- make_map2(baringo_data, "No_Negative", "No. Negative")
+map_vaccinated <- make_map2(baringo_data, "Total_Vaccinated", "Total Vaccinated")
+map_hcw_vax    <- make_map2(baringo_data, "HCW_Vaccinated", "HCWs Vaccinated")
+map_rate       <- make_map2(baringo_data, "Positivity_Rate", "Positivity Rate (%)")
+
+# --- Combine in a clean 3x2 grid layout ---
+combined_plot <- (map_tested + map_positive + map_negative) /
+  (map_vaccinated + map_hcw_vax + map_rate) +
+  plot_annotation(
+    title = "Hepatitis B Indicators by Subcounty — Baringo County",
+    caption = "Source: Field Data & Kenya Open Data | Map: Your Name",
+    theme = theme(
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 9, color = "gray40")
+    )
+  )
+
+# --- Save nicely with proper aspect ratio ---
+ggsave("2Baringo_HBV_Indicators.png", combined_plot, width = 14, height = 9, dpi = 300)
 
 
 
 
+#####5
 
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(viridis)
 
+# --- Load and filter shapefile for Baringo County ---
+baringo_shape <- subcounty_shape %>%
+  filter(county == "Baringo") %>%
+  mutate(subcounty_clean = gsub(" Sub County", "", subcounty))
+
+# --- Clean summary table and join ---
+summary_table_clean <- summary_table %>%
+  filter(N6SubCounty != "Total") %>%
+  rename(subcounty_clean = N6SubCounty)
+
+baringo_mapdata <- baringo_shape %>%
+  left_join(summary_table_clean, by = "subcounty_clean")
+
+# --- Plot: Choropleth of Positivity Rate ---
+ggplot(baringo_mapdata) +
+  geom_sf(aes(fill = Positivity_rate), color = "white", linewidth = 0.6) +
+  scale_fill_viridis_c(option = "plasma", direction = -1,
+                       name = "Positivity Rate (%)") +
+  geom_sf_text(aes(label = subcounty_clean), size = 3, color = "black") +
+  labs(
+    title = "Hepatitis B Positivity Rate by Subcounty — Baringo County",
+    subtitle = "Aggregated HBV RDT Results",
+    caption = "Source: Field Data (2025)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    legend.position = "right",
+    panel.background = element_rect(fill = "aliceblue", color = NA)
+  )
 
 
 
